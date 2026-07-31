@@ -1,0 +1,76 @@
+- generic [ref=e80]:
+  - navigation [ref=e81]:
+    - generic [ref=e82]:
+      - link "Ir al dashboard" [ref=e83] [cursor=pointer]:
+        - /url: http://127.0.0.1:8000/dashboard
+        - generic [ref=e87]:
+          - generic [ref=e88]: AgroFundo
+          - generic [ref=e89]: Gestión rural
+      - generic [ref=e90]:
+        - button "Alternar tema" [ref=e91] [cursor=pointer]
+        - button "Abrir navegación" [ref=e94] [cursor=pointer]
+  - banner [ref=e97]:
+    - generic [ref=e98]:
+      - generic [ref=e99]:
+        - paragraph [ref=e100]: Centro de operaciones
+        - heading "Resumen general" [level=1] [ref=e101]
+      - generic [ref=e102]: FUNDO PARQUE
+  - main [ref=e103]:
+    - generic [ref=e105]:
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - paragraph [ref=e108]: jueves, 16 de julio
+          - heading "Buen día, ADMINISTRADOR" [level=2] [ref=e109]
+          - paragraph [ref=e110]: Este es tu panel de control centralizado. Desde aquí puedes monitorear los animales, registrar los ordeños del día, gestionar el engorde y auditar todos los movimientos financieros del fundo.
+        - link "Ver inventario animal" [ref=e111] [cursor=pointer]:
+          - /url: http://127.0.0.1:8000/animal
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e115]: Total Animales
+            - generic [ref=e116]: 🐾
+          - generic [ref=e117]:
+            - generic [ref=e118]: "32"
+            - generic [ref=e119]: animales
+          - generic [ref=e120]: Registrados en este fundo
+        - generic [ref=e121]:
+          - generic [ref=e122]:
+            - generic [ref=e123]: Ordeño Hoy
+            - generic [ref=e124]: 🥛
+          - generic [ref=e125]:
+            - generic [ref=e126]: "0"
+            - generic [ref=e127]: Litros
+          - generic [ref=e128]: Producción diaria acumulada
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Elaboración Queso
+            - generic [ref=e132]: 🧀
+          - generic [ref=e133]:
+            - generic [ref=e134]: "14"
+            - generic [ref=e135]: moldes
+          - generic [ref=e136]: Producción de esta semana
+        - generic [ref=e137]:
+          - generic [ref=e138]:
+            - generic [ref=e139]: Balance Mensual
+            - generic [ref=e140]: 💰
+          - generic [ref=e141]: S/. 5,725.00
+          - generic [ref=e143]: Ingresos vs Egresos del mes
+      - generic [ref=e144]:
+        - generic [ref=e145]:
+          - generic [ref=e146]:
+            - heading "🥩 Lotes de Engorde" [level=3] [ref=e147]
+            - generic [ref=e148]: 30 ejemplares activos
+          - paragraph [ref=e149]: Monitorea la curva de pesaje de tus animales y la ganancia de peso diaria promedio.
+          - link "Ir al módulo de engorde" [ref=e151] [cursor=pointer]:
+            - /url: http://127.0.0.1:8000/engorde
+            - text: Ir al módulo de engorde
+            - generic [ref=e152]: →
+        - generic [ref=e153]:
+          - generic [ref=e154]:
+            - heading "🔔 Alertas y Notificaciones" [level=3] [ref=e155]
+            - generic [ref=e156]: 8 pendientes
+          - paragraph [ref=e157]: Controla las próximas dosis de profilaxis veterinarias y salidas de animales en cuarentena.
+          - link "Ir a alertas sanitarias" [ref=e159] [cursor=pointer]:
+            - /url: http://127.0.0.1:8000/monitoreo
+            - text: Ir a alertas sanitarias
+            - generic [ref=e160]: →
