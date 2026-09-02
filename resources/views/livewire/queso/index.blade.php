@@ -26,13 +26,12 @@
 
     <!-- Productive dashboard: summaries only, interactions run locally in Alpine. -->
     <section wire:ignore x-data="cheeseDashboard(@js($dashboardData))" x-cloak
-             class="overflow-hidden rounded-[1.75rem] border border-emerald-950/10 bg-white shadow-[0_24px_70px_-38px_rgba(6,78,59,0.35)] dark:border-emerald-200/10 dark:bg-zinc-950/75 dark:shadow-black/30">
-        <div class="relative overflow-hidden border-b border-emerald-950/10 bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 py-5 dark:border-emerald-200/10 dark:from-emerald-950/70 dark:via-zinc-950 dark:to-sky-950/50 sm:px-6">
-            <div class="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-emerald-300/20 blur-3xl dark:bg-emerald-400/10"></div>
+             class="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="relative overflow-hidden border-b border-zinc-200 bg-zinc-50/70 px-4 py-5 dark:border-zinc-800 dark:bg-zinc-900/60 sm:px-6">
             <div class="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="rounded-full border border-emerald-600/15 bg-emerald-600/10 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-emerald-800 dark:border-emerald-300/15 dark:bg-emerald-300/10 dark:text-emerald-300">Panel productivo</span>
+                        <span class="rounded-full border border-emerald-600/20 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">Panel productivo</span>
                         <span class="text-xs text-zinc-500 dark:text-zinc-400">Actualizado {{ $dashboardData['generatedAt'] }}</span>
                     </div>
                     <h2 class="mt-2 text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white sm:text-2xl">Radiografía de la producción de queso</h2>
@@ -56,8 +55,8 @@
                          @scroll.window="dropdownOpen && positionMenu()">
                         <span class="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Analizar un mes específico</span>
                         <button x-ref="trigger" type="button" @click="dropdownOpen = !dropdownOpen"
-                                class="flex h-10 w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3.5 text-left text-xs font-bold text-zinc-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 hover:border-emerald-400 dark:hover:border-emerald-400"
-                                :class="dropdownOpen && 'border-emerald-500 ring-2 ring-emerald-500/20'">
+                                class="flex h-10 w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3.5 text-left text-xs font-bold text-zinc-700 shadow-xs transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 hover:border-emerald-400 dark:hover:border-zinc-700"
+                                :class="dropdownOpen && 'border-emerald-500 ring-2 ring-emerald-500/20 dark:border-emerald-500'">
                             <span class="truncate" x-text="selectedPeriod === '' ? 'Todo el periodo visible' : (visibleMonths.find(m => m.period === selectedPeriod)?.fullLabel || 'Todo el periodo visible')"></span>
                             <svg class="h-4 w-4 shrink-0 text-zinc-400 transition-transform" :class="dropdownOpen && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
@@ -72,11 +71,11 @@
                                  x-transition:leave-start="opacity-100 scale-100"
                                  x-transition:leave-end="opacity-0 scale-95"
                                  :style="menuStyle"
-                                 class="z-50 mt-1.5 max-h-60 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl shadow-zinc-950/15 dark:border-zinc-700 dark:bg-zinc-900"
+                                 class="z-50 mt-1.5 max-h-60 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
                                  style="display: none;">
                                 <button type="button" @click="selectPeriod(''); dropdownOpen = false"
-                                        :class="selectedPeriod === '' ? 'bg-emerald-600 text-white dark:bg-emerald-400/20 dark:text-emerald-50' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
-                                        class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-bold transition">
+                                        :class="selectedPeriod === '' ? 'bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-400 font-bold' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
+                                        class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition">
                                     <span>Todo el periodo visible</span>
                                     <svg x-show="selectedPeriod === ''" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
@@ -84,8 +83,8 @@
                                 </button>
                                 <template x-for="month in [...visibleMonths].reverse()" :key="`option-${month.period}`">
                                     <button type="button" @click="selectPeriod(month.period); dropdownOpen = false"
-                                            :class="selectedPeriod === month.period ? 'bg-emerald-600 text-white dark:bg-emerald-400/20 dark:text-emerald-50' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
-                                            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-bold transition">
+                                            :class="selectedPeriod === month.period ? 'bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-400 font-bold' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
+                                            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition">
                                         <span x-text="`${month.fullLabel}${Number(month.records) === 0 ? ' · sin producción' : ''}`"></span>
                                         <svg x-show="selectedPeriod === month.period" class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
@@ -95,15 +94,15 @@
                             </div>
                         </template>
                     </div>
-                    <div class="inline-flex items-center gap-1 rounded-2xl border border-zinc-200/90 bg-white/90 p-1.5 shadow-sm backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/90" aria-label="Alcance temporal del dashboard">
+                    <div class="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-950" aria-label="Alcance temporal del dashboard">
                         <template x-for="item in [{v: 6, l: '6 meses'}, {v: 12, l: '12 meses'}, {v: 24, l: '24 meses'}]" :key="item.v">
                             <button type="button" @click="setRange(item.v)"
                                     :class="range === item.v 
-                                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25 ring-1 ring-emerald-400/30 dark:from-emerald-500 dark:to-teal-400 dark:text-zinc-950 font-extrabold scale-[1.02]' 
-                                        : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800/80 font-bold'"
-                                    class="relative inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs transition-all duration-200 ease-out focus:outline-none xl:flex-none">
-                                <span class="h-1.5 w-1.5 rounded-full transition-all duration-300" 
-                                      :class="range === item.v ? 'bg-white dark:bg-zinc-950 animate-pulse' : 'bg-transparent'"></span>
+                                        ? 'bg-white text-emerald-700 shadow-xs dark:bg-zinc-800 dark:text-emerald-400 font-bold' 
+                                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white font-medium'"
+                                    class="relative inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition focus:outline-none">
+                                <span class="h-1.5 w-1.5 rounded-full" 
+                                      :class="range === item.v ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-transparent'"></span>
                                 <span x-text="item.l"></span>
                             </button>
                         </template>
@@ -114,56 +113,69 @@
 
         <div class="space-y-4 p-4 sm:p-6">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <article class="group relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/[.07]">
-                    <div class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600/10 text-emerald-700 dark:bg-emerald-300/10 dark:text-emerald-300">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.071.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.22 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                <!-- Card 1: Peso -->
+                <article class="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-950 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400" x-text="selectedMonth ? 'Peso del mes' : 'Peso del periodo'"></p>
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-500/20">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.071.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.22 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                        </div>
                     </div>
-                    <p class="pr-10 text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-800/70 dark:text-emerald-300/70" x-text="selectedMonth ? 'Peso del mes' : 'Peso del periodo'"></p>
-                    <p class="mt-2 text-2xl font-extrabold text-emerald-950 dark:text-emerald-50"><span x-text="format(totalWeight, 2)"></span> <small class="text-sm font-bold opacity-60">kg</small></p>
-                    <p class="mt-2 text-xs text-emerald-800/65 dark:text-emerald-300/60"><span x-text="totalRecords"></span> elaboraciones consideradas</p>
+                    <p class="mt-2 text-2xl font-extrabold text-zinc-900 dark:text-white"><span x-text="format(totalWeight, 2)"></span> <small class="text-sm font-bold text-zinc-500 dark:text-zinc-400">kg</small></p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"><span x-text="totalRecords"></span> elaboraciones consideradas</p>
                 </article>
 
-                <article class="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-sky-50/70 p-4 dark:border-sky-500/20 dark:bg-sky-500/[.07]">
-                    <div class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl bg-sky-600/10 text-sky-700 dark:bg-sky-300/10 dark:text-sky-300">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75c0-1.036 3.694-1.875 8.25-1.875s8.25.84 8.25 1.875S16.556 8.625 12 8.625s-8.25-.84-8.25-1.875Zm0 0v4.5c0 1.036 3.694 1.875 8.25 1.875s8.25-.84 8.25-1.875v-4.5m-16.5 4.5v4.5c0 1.036 3.694 1.875 8.25 1.875s8.25-.84 8.25-1.875v-4.5" /></svg>
+                <!-- Card 2: Moldes -->
+                <article class="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-950 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400" x-text="selectedMonth ? 'Moldes del mes' : 'Moldes elaborados'"></p>
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400 border border-sky-200/60 dark:border-sky-500/20">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75c0-1.036 3.694-1.875 8.25-1.875s8.25.84 8.25 1.875S16.556 8.625 12 8.625s-8.25-.84-8.25-1.875Zm0 0v4.5c0 1.036 3.694 1.875 8.25 1.875s8.25-.84 8.25-1.875v-4.5m-16.5 4.5v4.5c0 1.036 3.694 1.875 8.25 1.875s8.25-.84 8.25-1.875v-4.5" /></svg>
+                        </div>
                     </div>
-                    <p class="pr-10 text-[10px] font-extrabold uppercase tracking-[0.14em] text-sky-800/70 dark:text-sky-300/70" x-text="selectedMonth ? 'Moldes del mes' : 'Moldes elaborados'"></p>
-                    <p class="mt-2 text-2xl font-extrabold text-sky-950 dark:text-sky-50" x-text="format(totalUnits)"></p>
-                    <p class="mt-2 text-xs text-sky-800/65 dark:text-sky-300/60"><span x-text="selectedMonth ? `${totalDays} día(s) con producción` : `${activeMonths.length} meses con actividad`"></span></p>
+                    <p class="mt-2 text-2xl font-extrabold text-zinc-900 dark:text-white" x-text="format(totalUnits)"></p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"><span x-text="selectedMonth ? `${totalDays} día(s) con producción` : `${activeMonths.length} meses con actividad`"></span></p>
                 </article>
 
-                <article class="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-violet-50/70 p-4 dark:border-violet-500/20 dark:bg-violet-500/[.07]">
-                    <div class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600/10 text-violet-700 dark:bg-violet-300/10 dark:text-violet-300">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75Zm6.75-4.5c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625Zm6.75-4.5C16.5 3.504 17.004 3 17.625 3h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                <!-- Card 3: Promedio -->
+                <article class="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-950 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Promedio por jornada</p>
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400 border border-violet-200/60 dark:border-violet-500/20">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75Zm6.75-4.5c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625Zm6.75-4.5C16.5 3.504 17.004 3 17.625 3h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>
+                        </div>
                     </div>
-                    <p class="pr-10 text-[10px] font-extrabold uppercase tracking-[0.14em] text-violet-800/70 dark:text-violet-300/70">Promedio por jornada</p>
-                    <p class="mt-2 text-2xl font-extrabold text-violet-950 dark:text-violet-50"><span x-text="format(averageDailyWeight, 2)"></span> <small class="text-sm font-bold opacity-60">kg</small></p>
-                    <p class="mt-2 text-xs text-violet-800/65 dark:text-violet-300/60"><span x-text="totalDays"></span> día(s) productivos analizados</p>
+                    <p class="mt-2 text-2xl font-extrabold text-zinc-900 dark:text-white"><span x-text="format(averageDailyWeight, 2)"></span> <small class="text-sm font-bold text-zinc-500 dark:text-zinc-400">kg</small></p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"><span x-text="totalDays"></span> día(s) productivos analizados</p>
                 </article>
 
-                <article class="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-amber-50/70 p-4 dark:border-amber-500/20 dark:bg-amber-500/[.07]">
-                    <div class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl bg-amber-600/10 text-amber-700 dark:bg-amber-300/10 dark:text-amber-300">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
+                <!-- Card 4: Mejor Mes -->
+                <article class="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs dark:border-zinc-800 dark:bg-zinc-950 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400" x-text="selectedMonth ? 'Mes seleccionado' : 'Mejor mes del periodo'"></p>
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 dark:border-amber-500/20">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
+                        </div>
                     </div>
-                    <p class="pr-10 text-[10px] font-extrabold uppercase tracking-[0.14em] text-amber-800/70 dark:text-amber-300/70" x-text="selectedMonth ? 'Mes seleccionado' : 'Mejor mes del periodo'"></p>
                     <template x-if="bestMonth && Number(bestMonth.weight) > 0">
                         <div>
-                            <p class="mt-2 truncate text-xl font-extrabold text-amber-950 dark:text-amber-50" x-text="bestMonth.fullLabel"></p>
-                            <p class="mt-2 text-xs font-semibold text-amber-800/70 dark:text-amber-300/65"><span x-text="format(bestMonth.weight, 2)"></span> kg · <span x-text="format(bestMonth.units)"></span> moldes</p>
+                            <p class="mt-2 truncate text-xl font-extrabold text-zinc-900 dark:text-white" x-text="bestMonth.fullLabel"></p>
+                            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"><span x-text="format(bestMonth.weight, 2)"></span> kg · <span x-text="format(bestMonth.units)"></span> moldes</p>
                         </div>
                     </template>
                     <template x-if="!bestMonth || Number(bestMonth.weight) === 0">
-                        <p class="mt-2 text-lg font-bold text-amber-900/60 dark:text-amber-200/60">Sin producción</p>
+                        <p class="mt-2 text-base font-bold text-zinc-400 dark:text-zinc-500">Sin producción</p>
                     </template>
                 </article>
             </div>
 
             <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
-                <article class="rounded-2xl border border-emerald-200/90 bg-emerald-50/40 p-4 shadow-sm xl:col-span-8 dark:border-emerald-500/20 dark:bg-emerald-500/[.055] sm:p-5">
+                <!-- Evolución Mensual Chart -->
+                <article class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs xl:col-span-8 dark:border-zinc-800 dark:bg-zinc-950 sm:p-5">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <div class="flex items-center gap-2">
-                                <span class="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"></span>
+                                <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
                                 <h3 class="font-bold text-zinc-900 dark:text-white">Evolución mensual</h3>
                             </div>
                             <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -171,40 +183,29 @@
                                 <span x-show="activeMonth"><strong x-text="activeMonth?.fullLabel"></strong>: <span x-text="metricText(value(activeMonth))"></span></span>
                             </p>
                         </div>
-                        <div class="inline-flex w-fit rounded-lg border border-zinc-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-950">
+                        <div class="inline-flex w-fit rounded-lg border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-900">
                             <button type="button" @click="metric = 'weight'; activePoint = null"
-                                    :class="metric === 'weight' ? 'bg-emerald-600 text-white dark:bg-emerald-400 dark:text-emerald-950' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'"
-                                    class="rounded-md px-3 py-1.5 text-[11px] font-bold transition">Kilogramos</button>
+                                    :class="metric === 'weight' ? 'bg-white text-emerald-700 shadow-xs dark:bg-zinc-800 dark:text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium'"
+                                    class="rounded-md px-3 py-1.5 text-[11px] transition">Kilogramos</button>
                             <button type="button" @click="metric = 'units'; activePoint = null"
-                                    :class="metric === 'units' ? 'bg-sky-600 text-white dark:bg-sky-400 dark:text-sky-950' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'"
-                                    class="rounded-md px-3 py-1.5 text-[11px] font-bold transition">Moldes</button>
+                                    :class="metric === 'units' ? 'bg-white text-sky-700 shadow-xs dark:bg-zinc-800 dark:text-sky-400 font-bold' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium'"
+                                    class="rounded-md px-3 py-1.5 text-[11px] transition">Moldes</button>
                         </div>
                     </div>
 
-                    <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200/80 bg-white px-2 pt-2 dark:border-zinc-800 dark:bg-zinc-950/70">
+                    <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/50 px-2 pt-2 dark:border-zinc-800/80 dark:bg-zinc-900/60">
                         <svg class="h-56 w-full" viewBox="0 0 1000 230" preserveAspectRatio="none" role="img" aria-label="Gráfico de evolución mensual de queso">
-                            <defs>
-                                <linearGradient id="quesoTrendArea" x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.28" />
-                                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.01" />
-                                </linearGradient>
-                                <linearGradient id="quesoTrendAreaUnits" x1="0" x2="0" y1="0" y2="1">
-                                    <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.28" />
-                                    <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.01" />
-                                </linearGradient>
-                            </defs>
                             <g class="stroke-zinc-200 dark:stroke-zinc-800" stroke-width="1">
                                 <line x1="25" x2="975" y1="35" y2="35" />
                                 <line x1="25" x2="975" y1="93" y2="93" />
                                 <line x1="25" x2="975" y1="151" y2="151" />
                                 <line x1="25" x2="975" y1="210" y2="210" />
                             </g>
-                            <polygon :points="areaPoints" :fill="metric === 'weight' ? 'url(#quesoTrendArea)' : 'url(#quesoTrendAreaUnits)'" />
-                            <polyline :points="trendPoints" fill="none" :stroke="metric === 'weight' ? '#10b981' : '#0ea5e9'" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                            <polyline :points="trendPoints" fill="none" :stroke="metric === 'weight' ? '#10b981' : '#0ea5e9'" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
                             <template x-for="(month, index) in visibleMonths" :key="month.period">
-                                <circle :cx="pointX(index)" :cy="pointY(typeof month !== 'undefined' ? month : null)" r="7"
+                                <circle :cx="pointX(index)" :cy="pointY(typeof month !== 'undefined' ? month : null)" r="6"
                                         :fill="activePoint === index || selectedPeriod === (typeof month !== 'undefined' ? month.period : '') ? (metric === 'weight' ? '#059669' : '#0284c7') : '#ffffff'"
-                                        :stroke="metric === 'weight' ? '#10b981' : '#0ea5e9'" stroke-width="4" vector-effect="non-scaling-stroke"
+                                        :stroke="metric === 'weight' ? '#10b981' : '#0ea5e9'" stroke-width="3" vector-effect="non-scaling-stroke"
                                         class="cursor-crosshair transition" tabindex="0"
                                         @mouseenter="activePoint = index" @mouseleave="activePoint = null"
                                         @focus="activePoint = index" @blur="activePoint = null">
@@ -220,17 +221,18 @@
                     </div>
                     <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <span class="text-zinc-500 dark:text-zinc-400">Mes de referencia: <strong class="text-zinc-800 dark:text-zinc-200" x-text="currentMonth?.fullLabel || 'Sin datos'"></strong></span>
-                        <span :class="monthlyChange !== null && monthlyChange > 0 ? 'text-emerald-700 dark:text-emerald-300' : (monthlyChange !== null && monthlyChange < 0 ? 'text-rose-700 dark:text-rose-300' : 'text-zinc-500')"
-                              class="rounded-full bg-zinc-100 px-2.5 py-1 font-bold dark:bg-zinc-800" x-text="changeText()"></span>
+                        <span :class="monthlyChange !== null && monthlyChange > 0 ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300' : (monthlyChange !== null && monthlyChange < 0 ? 'text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300' : 'text-zinc-500 bg-zinc-100 dark:bg-zinc-800')"
+                              class="rounded-full px-2.5 py-1 font-bold" x-text="changeText()"></span>
                     </div>
                 </article>
 
-                <article class="rounded-2xl border border-sky-200/90 bg-sky-50/45 p-4 shadow-sm xl:col-span-4 dark:border-sky-500/20 dark:bg-sky-500/[.055] sm:p-5">
+                <!-- Mezcla de Presentaciones Donut -->
+                <article class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs xl:col-span-4 dark:border-zinc-800 dark:bg-zinc-950 sm:p-5">
                     <h3 class="font-bold text-zinc-900 dark:text-white">Mezcla de presentaciones</h3>
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Cantidad de moldes por tamaño en el periodo.</p>
                     <div class="mt-5 flex flex-col items-center gap-5 sm:flex-row xl:flex-col 2xl:flex-row">
                         <div class="relative h-40 w-40 shrink-0 rounded-full shadow-inner" :style="`background: ${donutBackground}`">
-                            <div class="absolute inset-[18%] flex flex-col items-center justify-center rounded-full border border-zinc-200 bg-white text-center dark:border-zinc-700 dark:bg-zinc-900">
+                            <div class="absolute inset-[18%] flex flex-col items-center justify-center rounded-full border border-zinc-200 bg-white text-center dark:border-zinc-800 dark:bg-zinc-950">
                                 <strong class="text-2xl text-zinc-900 dark:text-white" x-text="format(presentationTotal)"></strong>
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">moldes</span>
                             </div>
@@ -242,7 +244,7 @@
                                         <span class="flex min-w-0 items-center gap-2 font-semibold text-zinc-700 dark:text-zinc-300"><i class="h-2.5 w-2.5 shrink-0 rounded-full" :style="`background:${item.color}`"></i><span class="truncate" x-text="item.label"></span></span>
                                         <span class="shrink-0 font-bold text-zinc-900 dark:text-white"><span x-text="format(item.quantity)"></span> · <span x-text="`${format(item.percentage, 1)}%`"></span></span>
                                     </div>
-                                    <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"><div class="h-full rounded-full" :style="`width:${item.percentage}%; background:${item.color}`"></div></div>
+                                    <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"><div class="h-full rounded-full" :style="`width:${item.percentage}%; background:${item.color}`"></div></div>
                                 </div>
                             </template>
                             <p x-show="presentationData.length === 0" class="rounded-xl border border-dashed border-zinc-300 p-4 text-center text-xs text-zinc-500 dark:border-zinc-700">Sin desglose de presentaciones en este periodo.</p>
