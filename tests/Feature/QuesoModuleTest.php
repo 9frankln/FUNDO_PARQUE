@@ -34,7 +34,7 @@ class QuesoModuleTest extends TestCase
             ->assertSee('Radiografía de la producción de queso')
             ->assertSee('Analizar un mes específico')
             ->assertSee('Evolución mensual')
-            ->assertSee('Comparación anual')
+            ->assertSee('Mezcla de presentaciones')
             ->assertSee('12 moldes')
             ->assertSee('Periodo de elaboración')
             ->assertSee('Resumen Mensual')

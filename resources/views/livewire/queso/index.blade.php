@@ -249,51 +249,6 @@
                         </div>
                     </div>
                 </article>
-
-                <article class="rounded-2xl border border-amber-200/90 bg-amber-50/45 p-4 shadow-sm xl:col-span-7 dark:border-amber-500/20 dark:bg-amber-500/[.055] sm:p-5">
-                    <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <h3 class="font-bold text-zinc-900 dark:text-white">Comparación anual</h3>
-                            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Hasta seis años de historia productiva.</p>
-                        </div>
-                        <div class="flex rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
-                            <button type="button" @click="annualMetric = 'weight'" :class="annualMetric === 'weight' ? 'bg-white text-emerald-700 shadow-sm dark:bg-zinc-700 dark:text-emerald-300' : 'text-zinc-500'" class="rounded-md px-2.5 py-1 text-[10px] font-bold">kg</button>
-                            <button type="button" @click="annualMetric = 'units'" :class="annualMetric === 'units' ? 'bg-white text-sky-700 shadow-sm dark:bg-zinc-700 dark:text-sky-300' : 'text-zinc-500'" class="rounded-md px-2.5 py-1 text-[10px] font-bold">moldes</button>
-                        </div>
-                    </div>
-                    <div class="mt-5 space-y-3">
-                        <template x-for="year in annualRows" :key="year.year">
-                            <div class="grid grid-cols-[3.5rem_minmax(0,1fr)_6.5rem] items-center gap-3">
-                                <span class="text-sm font-extrabold text-zinc-700 dark:text-zinc-300" x-text="year.year"></span>
-                                <div class="h-7 overflow-hidden rounded-lg bg-zinc-200/80 dark:bg-zinc-800">
-                                    <div class="flex h-full items-center rounded-lg px-2 transition-all duration-500"
-                                         :class="annualMetric === 'weight' ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-sky-500 to-cyan-400'"
-                                         :style="`width:${annualWidth(year)}`">
-                                        <span class="truncate text-[9px] font-bold text-white" x-text="`${year.months} meses activos`"></span>
-                                    </div>
-                                </div>
-                                <strong class="text-right text-xs text-zinc-800 dark:text-zinc-200" x-text="metricText(annualValue(year), annualMetric)"></strong>
-                            </div>
-                        </template>
-                        <p x-show="annualRows.length === 0" class="py-8 text-center text-xs text-zinc-500">Aún no hay información anual.</p>
-                    </div>
-                </article>
-
-                <article class="rounded-2xl border border-violet-200/90 bg-violet-50/45 p-4 shadow-sm xl:col-span-5 dark:border-violet-500/20 dark:bg-violet-500/[.055] sm:p-5">
-                    <h3 class="font-bold text-zinc-900 dark:text-white">Ritmo por día de semana</h3>
-                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Kilos elaborados y jornadas activas según el día.</p>
-                    <div class="mt-5 flex h-48 items-end justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 pb-3 pt-6 dark:border-zinc-800 dark:bg-zinc-950/70">
-                        <template x-for="day in weekdayRows" :key="day.key">
-                            <div class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2" :title="`${day.label}: ${format(day.weight, 2)} kg en ${day.days} jornada(s)`">
-                                <span class="text-[9px] font-bold text-zinc-500" x-text="day.weight > 0 ? format(day.weight, 1) : ''"></span>
-                                <div class="flex h-32 w-full items-end justify-center">
-                                    <div class="w-full max-w-10 rounded-t-lg bg-gradient-to-t from-violet-600 to-fuchsia-400 shadow-sm transition-all duration-500" :style="`height:${day.height}`"></div>
-                                </div>
-                                <span class="text-[10px] font-extrabold text-zinc-600 dark:text-zinc-400" x-text="day.label"></span>
-                            </div>
-                        </template>
-                    </div>
-                </article>
             </div>
         </div>
     </section>
