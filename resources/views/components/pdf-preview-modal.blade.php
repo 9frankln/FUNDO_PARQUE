@@ -44,34 +44,30 @@
             pdfUrl: '{{ $initialPdfUrl }}',
             lastProcessedUrl: '{{ $initialPdfUrl }}',
             currentToken: '{{ $pdfPreviewToken ?? '' }}',
-            activeIframe: 'A',
-            fadingTarget: null,
-            srcA: '{{ $initialIframeSrc }}',
-            srcB: '',
-            isMobile: false,
             lastWidth: window.innerWidth,
             reqId: 0,
             isRenderingCanvas: false,
             activeLoadingTask: null,
             activeRenderTasks: [],
             openFormatMenu: false,
+            openSpeedDial: false,
             openSignModal: {{ $serverShowSign ? 'true' : 'false' }},
             localColorMode: '{{ $serverColorMode }}',
+            currentPage: 1,
+            totalPages: 1,
             init() {
-                this.checkMobile();
                 this.lastWidth = window.innerWidth;
                 window.addEventListener('resize', () => {
                     const currentWidth = window.innerWidth;
-                    if (Math.abs(currentWidth - this.lastWidth) > 40) {
+                    if (Math.abs(currentWidth - this.lastWidth) > 50) {
                         this.lastWidth = currentWidth;
-                        this.checkMobile();
-                        if (this.isMobile && this.pdfUrl) {
-                            this.renderMobileCanvas(this.pdfUrl, ++this.reqId);
+                        if (this.pdfUrl) {
+                            this.renderPdfPages(this.pdfUrl, ++this.reqId);
                         }
                     }
                 });
-                if (this.pdfUrl && this.isMobile) {
-                    this.renderMobileCanvas(this.pdfUrl, ++this.reqId);
+                if (this.pdfUrl) {
+                    this.renderPdfPages(this.pdfUrl, ++this.reqId);
                 }
                 if (window.Livewire) {
                     Livewire.on('pdf-preview-ready', (event) => {
@@ -101,28 +97,7 @@
                 if (!newUrl || newUrl === this.lastProcessedUrl) return;
                 this.lastProcessedUrl = newUrl;
                 this.pdfUrl = newUrl;
-                if (this.isMobile) {
-                    this.renderMobileCanvas(newUrl, ++this.reqId);
-                    return;
-                }
-                // Double buffering con carga previa
-                const fullUrl = newUrl.includes('#') ? newUrl : (newUrl + '#toolbar=0&navpanes=0&view=FitH&pagemode=none');
-                if (this.activeIframe === 'A') {
-                    this.srcB = fullUrl;
-                } else {
-                    this.srcA = fullUrl;
-                }
-            },
-            onIframeLoad(target) {
-                if (this.activeIframe === target) return;
-                // Espera de 150ms para que el motor Chromium rasterice antes de hacer fade-in
-                setTimeout(() => {
-                    this.fadingTarget = target;
-                    setTimeout(() => {
-                        this.activeIframe = target;
-                        this.fadingTarget = null;
-                    }, 300);
-                }, 150);
+                this.renderPdfPages(newUrl, ++this.reqId);
             },
             async loadPdfJs() {
                 if (window.pdfjsLib) return;
@@ -137,7 +112,7 @@
                     document.head.appendChild(s);
                 });
             },
-            async renderMobileCanvas(url, thisReq) {
+            async renderPdfPages(url, thisReq) {
                 if (!url) return;
                 this.isRenderingCanvas = true;
                 try {
@@ -158,12 +133,13 @@
                     const pdf = await loadingTask.promise;
                     if (this.reqId !== thisReq) return;
                     
+                    this.totalPages = pdf.numPages || 1;
                     const container = this.$refs.pdfCanvasContainer;
                     if (!container) return;
                     
                     const fragment = document.createDocumentFragment();
-                    const availableWidth = container.clientWidth || (window.innerWidth - 24);
-                    const targetWidth = Math.max(280, Math.min(availableWidth, 920));
+                    const availableWidth = container.clientWidth ? (container.clientWidth - 32) : (window.innerWidth - 32);
+                    const targetWidth = Math.max(300, Math.min(availableWidth, 1100));
                     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
                     const canvasList = [];
@@ -178,10 +154,11 @@
                         const viewport = page.getViewport({ scale: baseScale * dpr });
 
                         const wrapper = document.createElement('div');
-                        wrapper.className = 'w-full flex justify-center mb-3 shrink-0';
+                        wrapper.id = 'pdf-page-' + i;
+                        wrapper.className = 'w-full flex justify-center mb-4 shrink-0 transition-opacity duration-200';
 
                         const canvas = document.createElement('canvas');
-                        canvas.className = 'rounded-xl shadow-xl bg-white border border-zinc-800/80';
+                        canvas.className = 'rounded-xl shadow-2xl bg-white border border-zinc-700/60 max-w-full';
                         canvas.style.width = targetWidth + 'px';
                         canvas.style.maxWidth = '100%';
                         canvas.style.height = 'auto';
@@ -206,7 +183,7 @@
                     }
                 } catch (e) {
                     if (this.reqId === thisReq) {
-                        console.warn('Visor fallback móvil', e);
+                        console.warn('Visor PDF Error', e);
                     }
                 } finally {
                     if (this.reqId === thisReq) {
@@ -217,46 +194,19 @@
             destroy() {
                 document.body.classList.remove('overflow-hidden');
             },
-            checkMobile() {
-                this.isMobile = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window && window.innerWidth < 768);
-            },
             scrollToTop() {
-                if (this.isMobile) {
-                    const scroller = this.$refs.pdfMobileScroll;
-                    if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
-                } else {
-                    const frame = this.activeIframe === 'A' ? this.$refs.pdfFrameA : this.$refs.pdfFrameB;
-                    if (frame && frame.contentWindow) {
-                        try { frame.contentWindow.scrollTo({ top: 0, behavior: 'smooth' }); } catch(e) {}
-                    }
-                }
+                const scroller = this.$refs.pdfScrollContainer;
+                if (scroller) scroller.scrollTo({ top: 0, behavior: 'smooth' });
             },
             scrollToBottom() {
-                if (this.isMobile) {
-                    const scroller = this.$refs.pdfMobileScroll;
-                    if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
-                } else {
-                    const frame = this.activeIframe === 'A' ? this.$refs.pdfFrameA : this.$refs.pdfFrameB;
-                    if (frame && frame.contentWindow) {
-                        try { frame.contentWindow.scrollTo({ top: frame.contentWindow.document.body.scrollHeight, behavior: 'smooth' }); } catch(e) {}
-                    }
-                }
+                const scroller = this.$refs.pdfScrollContainer;
+                if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
             },
             scrollPage(dir) {
-                if (this.isMobile) {
-                    const scroller = this.$refs.pdfMobileScroll;
-                    if (scroller) {
-                        const step = scroller.clientHeight * 0.85;
-                        scroller.scrollBy({ top: dir * step, behavior: 'smooth' });
-                    }
-                } else {
-                    const frame = this.activeIframe === 'A' ? this.$refs.pdfFrameA : this.$refs.pdfFrameB;
-                    if (frame && frame.contentWindow) {
-                        try {
-                            const step = frame.clientHeight * 0.85;
-                            frame.contentWindow.scrollBy({ top: dir * step, behavior: 'smooth' });
-                        } catch(e) {}
-                    }
+                const scroller = this.$refs.pdfScrollContainer;
+                if (scroller) {
+                    const step = scroller.clientHeight * 0.82;
+                    scroller.scrollBy({ top: dir * step, behavior: 'smooth' });
                 }
             },
             openNative() {
@@ -502,77 +452,77 @@
                     </div>
 
                     @if($pdfPreviewToken || $pdfPreviewData)
-                        {{-- MODO ESCRITORIO: ARQUITECTURA ZERO-FLICKER CON DOUBLE BUFFERING (IFRAME A / B) --}}
-                        <div wire:ignore x-show="!isMobile" class="relative w-full flex-1 min-h-0 bg-zinc-900">
-                            {{-- Iframe Buffer A --}}
-                            <iframe x-ref="pdfFrameA"
-                                    :src="srcA"
-                                    @load="onIframeLoad('A')"
-                                    :class="{
-                                        'opacity-100 z-20 pointer-events-auto': activeIframe === 'A' || fadingTarget === 'A',
-                                        'opacity-100 z-10 pointer-events-none': activeIframe === 'A' && fadingTarget === 'B',
-                                        'opacity-0 z-0 pointer-events-none': activeIframe !== 'A' && fadingTarget !== 'A'
-                                    }"
-                                    class="absolute inset-0 w-full h-full border-0 bg-white transition-opacity duration-300 ease-in-out"
-                                    title="Vista previa del PDF A"></iframe>
-
-                            {{-- Iframe Buffer B --}}
-                            <iframe x-ref="pdfFrameB"
-                                    :src="srcB"
-                                    @load="onIframeLoad('B')"
-                                    :class="{
-                                        'opacity-100 z-20 pointer-events-auto': activeIframe === 'B' || fadingTarget === 'B',
-                                        'opacity-100 z-10 pointer-events-none': activeIframe === 'B' && fadingTarget === 'A',
-                                        'opacity-0 z-0 pointer-events-none': activeIframe !== 'B' && fadingTarget !== 'B'
-                                    }"
-                                    class="absolute inset-0 w-full h-full border-0 bg-white transition-opacity duration-300 ease-in-out"
-                                    title="Vista previa del PDF B"></iframe>
-                        </div>
-
-                        {{-- MODO MÓVIL Y TABLET: RENDERIZADO HTML5 CANVAS AUTOAJUSTABLE SIN DUPLICACIÓN CON WIRE:IGNORE --}}
-                        <div x-show="isMobile"
-                             x-ref="pdfMobileScroll"
-                             class="w-full flex-1 min-h-0 overflow-y-auto p-2 sm:p-4 bg-zinc-950 flex flex-col items-center"
-                             style="-webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior-y: contain;">
+                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON SCROLL 100% ACCESIBLE) --}}
+                        <div x-ref="pdfScrollContainer"
+                             class="relative w-full flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 bg-zinc-900 flex flex-col items-center select-none"
+                             style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
+                            
+                            {{-- Indicador de carga / renderizado --}}
                             <div x-show="isRenderingCanvas" class="flex flex-col items-center justify-center py-12 gap-3 text-zinc-400">
-                                <svg class="h-6 w-6 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                <span class="text-xs font-bold text-zinc-300">Ajustando documento a pantalla...</span>
+                                <svg class="h-7 w-7 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                <span class="text-xs font-bold text-zinc-300">Cargando documento en alta resolución...</span>
                             </div>
-                            <div wire:ignore x-ref="pdfCanvasContainer" class="w-full flex flex-col items-center gap-3"></div>
+
+                            {{-- Contenedor de páginas renderizadas con sombra y separación --}}
+                            <div wire:ignore x-ref="pdfCanvasContainer" class="w-full flex flex-col items-center"></div>
                         </div>
 
-                        {{-- DOCK FLOTANTE DE NAVEGACIÓN Y DESPLAZAMIENTO RÁPIDO ENTRE PÁGINAS (SUPER FAST SCROLLER) --}}
-                        <div class="absolute bottom-12 right-4 sm:bottom-4 sm:right-4 z-30 flex items-center gap-1 rounded-2xl border border-zinc-700/80 bg-zinc-950/90 p-1.5 shadow-2xl backdrop-blur-md select-none transition hover:border-emerald-500/50">
-                            <button type="button" @click="scrollToTop()"
-                                    class="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-300 hover:bg-zinc-800 hover:text-white active:scale-95 transition cursor-pointer"
-                                    title="Ir al inicio del PDF (Primera página)">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 11l7-7 7 7M5 19l7-7 7 7"/></svg>
-                            </button>
-                            <button type="button" @click="scrollPage(-1)"
-                                    class="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-300 hover:bg-zinc-800 hover:text-white active:scale-95 transition cursor-pointer"
-                                    title="Subir página / sección anterior">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
-                            </button>
-                            <div class="h-4 w-px bg-zinc-800"></div>
-                            <button type="button" @click="scrollPage(1)"
-                                    class="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-300 hover:bg-zinc-800 hover:text-white active:scale-95 transition cursor-pointer"
-                                    title="Bajar página / sección siguiente">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                            </button>
-                            <button type="button" @click="scrollToBottom()"
-                                    class="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-300 hover:bg-zinc-800 hover:text-white active:scale-95 transition cursor-pointer"
-                                    title="Ir al final del PDF (Última página)">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7m0-8l7 7 7-7"/></svg>
-                            </button>
-                        </div>
+                        {{-- DOCK FLOTANTE COMPACTO Y DESPLEGABLE DE NAVEGACIÓN RÁPIDA (EXPANDIBLE AL CLIC / HOVER) --}}
+                        <div class="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 flex flex-col items-end gap-2"
+                             @click.outside="openSpeedDial = false">
+                            
+                            {{-- Menú de botones desplegado verticalmente --}}
+                            <div x-show="openSpeedDial"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 translate-y-3 scale-90"
+                                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave="transition ease-in duration-150"
+                                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave-end="opacity-0 translate-y-3 scale-90"
+                                 class="flex flex-col items-center gap-1.5 rounded-2xl border border-zinc-700/80 bg-zinc-950/95 p-2 shadow-2xl backdrop-blur-md">
+                                
+                                {{-- 1. Inicio (Página 1) --}}
+                                <button type="button" @click="scrollToTop(); openSpeedDial = false"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-300 hover:bg-emerald-600 hover:text-white active:scale-95 transition cursor-pointer"
+                                        title="Ir al inicio (Primera página)">
+                                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 11l7-7 7 7M5 19l7-7 7 7"/></svg>
+                                </button>
+                                
+                                {{-- 2. Página anterior --}}
+                                <button type="button" @click="scrollPage(-1)"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-300 hover:bg-emerald-600 hover:text-white active:scale-95 transition cursor-pointer"
+                                        title="Subir una página">
+                                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                
+                                <div class="h-px w-6 bg-zinc-800 my-0.5"></div>
+                                
+                                {{-- 3. Página siguiente --}}
+                                <button type="button" @click="scrollPage(1)"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-300 hover:bg-emerald-600 hover:text-white active:scale-95 transition cursor-pointer"
+                                        title="Bajar una página">
+                                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                                
+                                {{-- 4. Final (Última página) --}}
+                                <button type="button" @click="scrollToBottom(); openSpeedDial = false"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-300 hover:bg-emerald-600 hover:text-white active:scale-95 transition cursor-pointer"
+                                        title="Ir al final (Última página)">
+                                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 13l-7 7-7-7m0-8l7 7 7-7"/></svg>
+                                </button>
+                            </div>
 
-                        {{-- Barra de Asistencia para Móviles (iOS / Android) --}}
-                        <div class="lg:hidden flex items-center justify-between gap-2 px-3 py-2 bg-zinc-950 border-t border-zinc-800 text-zinc-200 shrink-0">
-                            <span class="text-[11px] font-semibold text-zinc-400">¿Deseas visor nativo del sistema?</span>
-                            <button type="button" @click="openNative()"
-                                    class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md active:scale-95">
-                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 0 0-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                <span>Ver Pantalla Completa</span>
+                            {{-- Botón Principal Compacto de Activación --}}
+                            <button type="button"
+                                    @click="openSpeedDial = !openSpeedDial"
+                                    class="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-500/40 bg-zinc-950/90 text-emerald-400 shadow-2xl backdrop-blur-md transition hover:bg-emerald-600 hover:text-white hover:scale-105 active:scale-95 cursor-pointer"
+                                    title="Navegación y salto rápido de páginas">
+                                <template x-if="!openSpeedDial">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+                                </template>
+                                <template x-if="openSpeedDial">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </template>
                             </button>
                         </div>
                     @else
