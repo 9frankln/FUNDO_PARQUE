@@ -135,11 +135,12 @@
                     
                     this.totalPages = pdf.numPages || 1;
                     const container = this.$refs.pdfCanvasContainer;
+                    const scroller = this.$refs.pdfScrollContainer;
                     if (!container) return;
                     
                     const fragment = document.createDocumentFragment();
-                    const availableWidth = container.clientWidth ? (container.clientWidth - 32) : (window.innerWidth - 32);
-                    const targetWidth = Math.max(300, Math.min(availableWidth, 1100));
+                    const measuredWidth = scroller?.clientWidth || container.parentElement?.clientWidth || window.innerWidth;
+                    const targetWidth = Math.max(320, measuredWidth - (window.innerWidth < 640 ? 4 : 8));
                     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
                     const canvasList = [];
@@ -155,12 +156,13 @@
 
                         const wrapper = document.createElement('div');
                         wrapper.id = 'pdf-page-' + i;
-                        wrapper.className = 'w-full flex justify-center mb-4 shrink-0 transition-opacity duration-200';
+                        wrapper.className = 'w-full flex justify-center mb-3 shrink-0';
+                        wrapper.style.width = '100%';
+                        wrapper.style.maxWidth = targetWidth + 'px';
 
                         const canvas = document.createElement('canvas');
-                        canvas.className = 'rounded-xl shadow-2xl bg-white border border-zinc-700/60 max-w-full';
-                        canvas.style.width = targetWidth + 'px';
-                        canvas.style.maxWidth = '100%';
+                        canvas.className = 'rounded-md shadow-2xl bg-white border border-zinc-700/60 w-full block';
+                        canvas.style.width = '100%';
                         canvas.style.height = 'auto';
                         canvas.height = viewport.height;
                         canvas.width = viewport.width;
@@ -452,9 +454,9 @@
                     </div>
 
                     @if($pdfPreviewToken || $pdfPreviewData)
-                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON SCROLL 100% ACCESIBLE) --}}
+                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON AJUSTE COMPLETO AL ANCHO) --}}
                         <div x-ref="pdfScrollContainer"
-                             class="relative w-full flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 bg-zinc-900 flex flex-col items-center select-none"
+                             class="relative w-full flex-1 min-h-0 overflow-y-auto p-1 sm:p-2 bg-zinc-950 flex flex-col items-center select-none"
                              style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
                             
                             {{-- Indicador de carga / renderizado --}}
