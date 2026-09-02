@@ -156,9 +156,9 @@
                     if (!container) return;
                     
                     const fragment = document.createDocumentFragment();
-                    const horizontalGutter = window.innerWidth < 640 ? 32 : (window.innerWidth < 1024 ? 64 : 96);
+                    const horizontalGutter = window.innerWidth < 640 ? 12 : 24;
                     const measuredWidth = scroller?.clientWidth || container.parentElement?.clientWidth || window.innerWidth;
-                    const targetWidth = Math.max(300, measuredWidth - horizontalGutter);
+                    const targetWidth = Math.max(320, measuredWidth - horizontalGutter);
                     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
                     const canvasList = [];
@@ -174,12 +174,12 @@
 
                         const wrapper = document.createElement('div');
                         wrapper.id = 'pdf-page-' + i;
-                        wrapper.className = 'w-full flex justify-center mb-4 shrink-0';
+                        wrapper.className = 'w-full flex justify-center mb-3.5 shrink-0';
                         wrapper.style.width = '100%';
                         wrapper.style.maxWidth = targetWidth + 'px';
 
                         const canvas = document.createElement('canvas');
-                        canvas.className = 'rounded-xl shadow-2xl bg-white border border-zinc-700/60 w-full block mx-auto';
+                        canvas.className = 'rounded-lg shadow-2xl bg-white border border-zinc-700/60 w-full block mx-auto';
                         canvas.style.width = targetWidth + 'px';
                         canvas.style.maxWidth = '100%';
                         canvas.style.height = 'auto';
@@ -493,9 +493,9 @@
                     <div x-show="isRenderingCanvas" class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 animate-pulse z-30"></div>
 
                     @if($pdfPreviewToken || $pdfPreviewData)
-                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON MARGEN EQUILIBRADO) --}}
+                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON AJUSTE MÁXIMO A BORDES) --}}
                         <div x-ref="pdfScrollContainer"
-                             class="relative w-full flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-10 py-4 bg-zinc-950 flex flex-col items-center select-none"
+                             class="relative w-full flex-1 min-h-0 overflow-y-auto px-2 sm:px-3.5 py-2.5 bg-zinc-950 flex flex-col items-center select-none"
                              style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
 
                             {{-- Contenedor de páginas renderizadas directo al tope sin huecos negros --}}
