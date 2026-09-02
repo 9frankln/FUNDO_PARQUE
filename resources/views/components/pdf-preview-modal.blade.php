@@ -156,7 +156,7 @@
                     if (!container) return;
                     
                     const fragment = document.createDocumentFragment();
-                    const horizontalGutter = window.innerWidth < 640 ? 24 : 48;
+                    const horizontalGutter = window.innerWidth < 640 ? 32 : (window.innerWidth < 1024 ? 64 : 96);
                     const measuredWidth = scroller?.clientWidth || container.parentElement?.clientWidth || window.innerWidth;
                     const targetWidth = Math.max(300, measuredWidth - horizontalGutter);
                     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -264,7 +264,7 @@
                 @click.stop
             >
                 {{-- BARRA SUPERIOR CONFORTABLE, ELEGANTE Y RESPONSIVE --}}
-                <div class="flex items-center justify-between gap-2 border-b border-zinc-200/90 bg-white/95 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95 shadow-2xs z-30 relative">
+                <div class="flex items-center justify-between gap-2 border-b border-zinc-200/90 bg-white/95 px-4 py-2 sm:px-6 sm:py-2.5 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95 shadow-2xs z-30 relative">
                     {{-- Grupo Izquierdo: Volver + Título del Reporte + Conteo --}}
                     <div class="flex items-center gap-2 sm:gap-2.5 shrink min-w-0">
                         {{-- Botón Volver / Opciones con color Esmeralda Genial --}}
@@ -495,7 +495,7 @@
                     @if($pdfPreviewToken || $pdfPreviewData)
                         {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON MARGEN EQUILIBRADO) --}}
                         <div x-ref="pdfScrollContainer"
-                             class="relative w-full flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-3 bg-zinc-950 flex flex-col items-center select-none"
+                             class="relative w-full flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 md:px-10 py-4 bg-zinc-950 flex flex-col items-center select-none"
                              style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
 
                             {{-- Contenedor de páginas renderizadas directo al tope sin huecos negros --}}
