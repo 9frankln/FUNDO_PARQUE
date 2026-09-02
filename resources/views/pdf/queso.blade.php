@@ -248,195 +248,56 @@ h1 { margin: 0 0 2pt; color: {{ $darkColor }}; font-size: 15pt; line-height: 1.1
 @php
     $renderedSection = 0;
 @endphp
-@if(in_array('summary', $selectedSections, true))
+@if(in_array('summary', $selectedSections, true) && !empty($selectedColumns['summary']))
     @php
         $summaryFields = $selectedColumns['summary'] ?? [];
         $summaryRows = array_chunk($summaryFields, 4);
         $renderedSection++;
     @endphp
-    <section class="report-section first">
-        <h2 class="section-heading">
-            Resumen productivo
-            <span class="section-note">Indicadores calculados exclusivamente con los registros que cumplen los filtros aplicados.</span>
-        </h2>
-        @foreach($summaryRows as $row)
-            <table class="summary-grid">
-                <tr>
-                    @foreach($row as $field)
-                        @php
-                            if ($isMono) {
-                                $cardBorder = $borderColor;
-                                $cardBg = $softColor;
-                                $cardLabelColor = $darkColor;
-                                $cardValColor = $primaryColor;
-                            } else {
-                                $cardBorder = '#cce3d5';
-                                $cardBg = '#f3faf6';
-                                $cardLabelColor = '#527061';
-                                $cardValColor = '#244d3c';
-
-                                if (in_array($field, ['period', 'weight'], true)) {
-                                    $cardBorder = '#a7f3d0';
-                                    $cardBg = '#f0fdf4';
-                                    $cardLabelColor = '#047857';
-                                    $cardValColor = '#065f46';
-                                } elseif (in_array($field, ['records', 'days', 'units'], true)) {
-                                    $cardBorder = '#bae6fd';
-                                    $cardBg = '#f0f9ff';
-                                    $cardLabelColor = '#0369a1';
-                                    $cardValColor = '#075985';
-                                } elseif (in_array($field, ['average_units', 'average_weight'], true)) {
-                                    $cardBorder = '#ddd6fe';
-                                    $cardBg = '#f5f3ff';
-                                    $cardLabelColor = '#6d28d9';
-                                    $cardValColor = '#5b21b6';
-                                } elseif ($field === 'last_production') {
-                                    $cardBorder = '#fde68a';
-                                    $cardBg = '#fffbeb';
-                                    $cardLabelColor = '#b45309';
-                                    $cardValColor = '#92400e';
+    <div class="summary-wrap" style="margin-top: 3pt; margin-bottom: 6pt; page-break-inside: avoid;">
+        <div class="summary-heading" style="background: {{ $primaryColor }}; color: #ffffff; padding: 3pt 6pt; font-size: {{ $thFontSize }}; font-weight: bold; border-radius: {{ $pdfConfig->tableBorderRadius() }} {{ $pdfConfig->tableBorderRadius() }} 0 0; text-transform: uppercase; letter-spacing: 0.5px;">
+            Resumen Productivo · Indicadores Consolidados
+        </div>
+        <table class="summary-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+            @foreach($summaryRows as $row)
+                <thead>
+                    <tr>
+                        @foreach($row as $field)
+                            <th style="width: 25%; padding: {{ $tableCellPad }}; font-size: {{ $thFontSize }}; background: {{ $softColor }}; color: {{ $darkColor }}; border: 1px solid {{ $borderColor }}; text-transform: uppercase;">
+                                {{ $columnOptions['summary'][$field] }}
+                            </th>
+                        @endforeach
+                        @for($e = count($row); $e < 4; $e++)
+                            <th style="width: 25%; border: 1px solid {{ $borderColor }}; background: {{ $softColor }};"></th>
+                        @endfor
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        @foreach($row as $field)
+                            @php
+                                $valColor = '#1e293b';
+                                if (!$isMono) {
+                                    if (in_array($field, ['weight', 'period'], true)) $valColor = '#065f46';
+                                    elseif (in_array($field, ['records', 'days', 'units'], true)) $valColor = '#075985';
+                                    elseif (in_array($field, ['average_units', 'average_weight'], true)) $valColor = '#5b21b6';
+                                    elseif ($field === 'last_production') $valColor = '#92400e';
+                                } else {
+                                    $valColor = $darkColor;
                                 }
-                            }
-                        @endphp
-                        <td>
-                            <div class="summary-card" style="border: 1px solid {{ $cardBorder }}; background: {{ $cardBg }};">
-                                <span class="summary-card-label" style="color: {{ $cardLabelColor }};">{{ $columnOptions['summary'][$field] }}</span>
-                                <span class="summary-card-value" style="color: {{ $cardValColor }};">{{ $summary[$field] ?? '-' }}</span>
-                            </div>
-                        </td>
-                    @endforeach
-                    @for($emptyCell = count($row); $emptyCell < 4; $emptyCell++)
-                        <td></td>
-                    @endfor
-                </tr>
-            </table>
-        @endforeach
-
-        @php
-            $chartMonths = $monthlySummaries->take(12)->reverse()->values();
-            $numMonths = $chartMonths->count();
-            $maxWeight = max($chartMonths->pluck('total_peso')->max() ?: 1, 1);
-
-            $barData = [];
-            if ($numMonths > 0) {
-                foreach ($chartMonths as $m) {
-                    $w = (float) $m->total_peso;
-                    $pct = max(round(($w / $maxWeight) * $barMaxH), 2);
-                    $barData[] = [
-                        'weight' => $w,
-                        'height' => $pct,
-                        'monthLabel' => substr($m->mes_nombre, 0, 3),
-                        'yearLabel' => substr($m->anio, 2)
-                    ];
-                }
-            }
-
-            $presentationTotals = [];
-            foreach ($productions as $p) {
-                foreach ($p->presentaciones as $pres) {
-                    $weight = $pres->peso_gramos;
-                    $presentationTotals[$weight] = ($presentationTotals[$weight] ?? 0) + $pres->cantidad;
-                }
-            }
-            arsort($presentationTotals);
-            $totalPresentationsQty = array_sum($presentationTotals) ?: 1;
-            $topPresentations = array_slice($presentationTotals, 0, 4, true);
-
-            $chart1Border = $isMono ? $borderColor : '#a7f3d0';
-            $chart1Bg = $isMono ? $softColor : '#f0fdf4';
-            $chart1Title = $isMono ? $darkColor : '#065f46';
-            $chart1Bar = $isMono ? $primaryColor : '#10b981';
-
-            $chart2Border = $isMono ? $borderColor : '#bae6fd';
-            $chart2Bg = $isMono ? $softColor : '#f0f9ff';
-            $chart2Title = $isMono ? $darkColor : '#075985';
-        @endphp
-
-        <table style="width: 100%; margin-top: 4pt; border-collapse: collapse; table-layout: fixed;">
-            <tr>
-                <td style="width: 50%; padding-right: 4pt; vertical-align: top;">
-                    <div style="border: 1px solid {{ $chart1Border }}; background: {{ $chart1Bg }}; padding: {{ $cardPad }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; height: {{ $chartHeight }};">
-                        <strong style="color: {{ $chart1Title }}; font-size: {{ $cardLabelSize }}; display: block; margin-bottom: 3pt; border-bottom: 1px solid {{ $chart1Border }}; padding-bottom: 2pt;">Evolución de Producción Mensual (Kg)</strong>
-                        
-                        @if(count($barData) > 0)
-                            <table style="width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3pt;">
-                                <tr>
-                                    @foreach($barData as $bar)
-                                        <td style="text-align: center; vertical-align: bottom; padding: 0 1.5px;">
-                                            <div style="font-size: 5pt; color: {{ $chart1Title }}; font-weight: bold; margin-bottom: 2px;">
-                                                {{ number_format($bar['weight'], 0, ',', '.') }}
-                                            </div>
-                                            <div style="background: {{ $chart1Bar }}; width: 12px; height: {{ $bar['height'] }}px; border-radius: 2px 2px 0 0; margin: 0 auto;"></div>
-                                        </td>
-                                    @endforeach
-                                </tr>
-                                <tr>
-                                    <td colspan="{{ count($barData) }}" style="padding: 2px 0 1px;">
-                                        <div style="border-top: 1px dashed {{ $chart1Border }}; height: 1px; width: 100%;"></div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    @foreach($barData as $bar)
-                                        <td style="text-align: center; font-size: 5.2pt; color: #527061; font-weight: bold; overflow: hidden; white-space: nowrap;">
-                                            {{ $bar['monthLabel'] }}
-                                        </td>
-                                    @endforeach
-                                </tr>
-                                <tr>
-                                    @foreach($barData as $bar)
-                                        <td style="text-align: center; font-size: 4.5pt; color: #86a393; font-weight: normal; overflow: hidden; white-space: nowrap; padding-top: 0.5px;">
-                                            '{{ $bar['yearLabel'] }}
-                                        </td>
-                                    @endforeach
-                                </tr>
-                            </table>
-                        @else
-                            <div style="text-align: center; color: {{ $chart1Title }}; font-size: 7pt; padding: 12pt 0; font-style: italic;">Sin datos de producción mensual.</div>
-                        @endif
-                    </div>
-                </td>
-                <td style="width: 50%; padding-left: 4pt; vertical-align: top;">
-                    <div style="border: 1px solid {{ $chart2Border }}; background: {{ $chart2Bg }}; padding: {{ $cardPad }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; height: {{ $chartHeight }};">
-                        <strong style="color: {{ $chart2Title }}; font-size: {{ $cardLabelSize }}; display: block; margin-bottom: 3pt; border-bottom: 1px solid {{ $chart2Border }}; padding-bottom: 2pt;">Mezcla de Presentaciones</strong>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            @forelse($topPresentations as $weight => $qty)
-                                @php
-                                    $pct = round(($qty / $totalPresentationsQty) * 100);
-                                    $color = '#8b5cf6';
-                                    if ((int)$weight === 500) { $color = '#10b981'; }
-                                    elseif ((int)$weight === 1000) { $color = '#0ea5e9'; }
-                                    
-                                    $textColor = '#5b21b6';
-                                    if ((int)$weight === 500) { $textColor = '#0f766e'; }
-                                    elseif ((int)$weight === 1000) { $textColor = '#0369a1'; }
-
-                                    if ($isMono) {
-                                        $color = $primaryColor;
-                                        $textColor = $darkColor;
-                                    }
-
-                                    $label = \App\Models\ProduccionQuesoPresentacion::pesoLabel($weight);
-                                @endphp
-                                <tr style="height: 16px;">
-                                    <td style="width: 32%; font-size: {{ $cardLabelSize }}; color: {{ $textColor }}; font-weight: bold; padding: 1px 0;">{{ $label }}</td>
-                                    <td style="width: 46%; padding: 1px 0;">
-                                        <div style="background: {{ $isMono ? '#e2e8f0' : '#e0f2fe' }}; height: 6px; border-radius: 3px; overflow: hidden; width: 100%;">
-                                            <div style="background: {{ $color }}; height: 100%; width: {{ $pct }}%; border-radius: 3px;"></div>
-                                        </div>
-                                    </td>
-                                    <td style="width: 22%; text-align: right; font-size: {{ $cardLabelSize }}; font-weight: bold; color: #0f172a; padding: 1px 0;">{{ $qty }} m. <span style="font-size: 5.2pt; color: #64748b; font-weight: normal;">({{ $pct }}%)</span></td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td style="text-align: center; color: {{ $chart2Title }}; font-size: 7pt; padding: 12pt 0; font-style: italic;">Sin desglose de presentaciones.</td>
-                                </tr>
-                            @endforelse
-                        </table>
-                    </div>
-                </td>
-            </tr>
+                            @endphp
+                            <td style="padding: {{ $tableCellPad }}; font-size: {{ $tableFontSize }}; font-weight: bold; border: 1px solid {{ $borderColor }}; background: {{ $loop->parent->even ? $evenColor : '#ffffff' }}; color: {{ $valColor }};">
+                                {{ $summary[$field] ?? '-' }}
+                            </td>
+                        @endforeach
+                        @for($e = count($row); $e < 4; $e++)
+                            <td style="border: 1px solid {{ $borderColor }}; background: {{ $loop->parent->even ? $evenColor : '#ffffff' }};"></td>
+                        @endfor
+                    </tr>
+                </tbody>
+            @endforeach
         </table>
-    </section>
+    </div>
 @endif
 
 @if(in_array('daily', $selectedSections, true))
