@@ -21,6 +21,14 @@ class LandingPageTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        \Illuminate\Support\Facades\Cache::flush();
+        app(\App\Support\SystemBranding::class)->invalidate();
+    }
+
     public function test_public_landing_uses_the_selected_fundo_and_tracks_database_changes(): void
     {
         $otherFundo = Fundo::create(['nombre' => 'Fundo reserva', 'activo' => true]);
@@ -108,7 +116,7 @@ class LandingPageTest extends TestCase
         Livewire::test(LandingManager::class)
             ->set('blocks.ganaderia.title', 'Cambio pendiente')
             ->call('setAsCover', 'ganaderia', $newCover->id)
-            ->assertSet('blocks.ganaderia.media.0.id', $newCover->id)
+            ->assertSet('blocks.ganaderia.media.'.$newCover->id.'.id', $newCover->id)
             ->assertSet('blocks.ganaderia.title', 'Cambio pendiente')
             ->assertDispatched('swal:toast');
 
@@ -144,9 +152,9 @@ class LandingPageTest extends TestCase
             ->call('saveFrame')
             ->assertHasNoErrors()
             ->assertSet('showFrameEditor', false)
-            ->assertSet('blocks.hero.media.0.focus_x', 18.5)
-            ->assertSet('blocks.hero.media.0.focus_y', 37.0)
-            ->assertSet('blocks.hero.media.0.zoom', 1.35)
+            ->assertSet('blocks.hero.media.'.$media->id.'.focus_x', 18.5)
+            ->assertSet('blocks.hero.media.'.$media->id.'.focus_y', 37.0)
+            ->assertSet('blocks.hero.media.'.$media->id.'.zoom', 1.35)
             ->assertDispatched('swal:toast');
 
         $media->refresh();

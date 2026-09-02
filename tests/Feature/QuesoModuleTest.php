@@ -238,6 +238,7 @@ class QuesoModuleTest extends TestCase
             ->set('reportColumns.annual', ['year', 'months', 'records', 'units', 'weight'])
             ->call('downloadQuesoReport')
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
     }
 
@@ -415,6 +416,29 @@ class QuesoModuleTest extends TestCase
             ->assertSee('500 gramos')
             ->assertSee('6.00 kg')
             ->assertSee('3.00 kg');
+    }
+
+    public function test_form_saves_and_calculates_milk_yield(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        Livewire::test(Form::class)
+            ->set('fecha', '2026-08-15')
+            ->set('litrosLeche', '100')
+            ->set('presentaciones', [
+                ['peso_gramos' => '1000', 'cantidad' => 10],
+            ])
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('queso.index'));
+
+        $production = ProduccionQueso::where('fundo_id', $fundo->id)->first();
+        $this->assertNotNull($production);
+        $this->assertSame('100.00', $production->litros_leche_usados);
+        $this->assertSame('10.00', $production->peso_total_kg);
+        $this->assertSame(10.0, $production->litros_por_kg);
+        $this->assertSame(10.0, $production->rendimiento_porcentaje);
     }
 
     private function administratorWithFundo(): array

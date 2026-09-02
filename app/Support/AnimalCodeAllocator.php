@@ -16,13 +16,25 @@ class AnimalCodeAllocator
 
     public function preview(int $fundoId, int $speciesId, int $year): int
     {
-        $last = (int) DB::table('animal_code_sequences')
+        $species = Especie::find($speciesId);
+        $prefix = $species?->codigo_animal;
+        if (! $prefix) {
+            return 1;
+        }
+
+        $maxUsed = (int) DB::table('animales')
             ->where('fundo_id', $fundoId)
             ->where('especie_id', $speciesId)
             ->where('codigo_anio', $year)
-            ->value('ultimo_numero');
+            ->whereNull('deleted_at')
+            ->max('codigo_secuencia');
 
-        return min(999, $last + 1);
+        $candidate = $maxUsed + 1;
+        while ($candidate <= 999 && $this->isReserved($fundoId, null, $prefix, $speciesId, $year, $candidate)) {
+            $candidate++;
+        }
+
+        return min(999, $candidate);
     }
 
     public function allocate(
@@ -53,51 +65,50 @@ class AnimalCodeAllocator
             ];
         }
 
-        DB::table('animal_code_sequences')->insertOrIgnore([
-            'fundo_id' => $fundoId,
-            'especie_id' => $species->id,
-            'codigo_anio' => $year,
-            'ultimo_numero' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($requestedNumber !== null) {
+            if ($requestedNumber < 1 || $requestedNumber > 999) {
+                throw ValidationException::withMessages([
+                    'codigoNumero' => 'La numeración debe estar entre 001 y 999.',
+                ]);
+            }
+            if ($this->isReserved($fundoId, $animal->id, $prefix, $species->id, $year, $requestedNumber)) {
+                throw ValidationException::withMessages([
+                    'codigoNumero' => 'Este número ya está asignado a otro animal.',
+                ]);
+            }
+            $number = $requestedNumber;
+        } else {
+            $maxUsed = (int) DB::table('animales')
+                ->where('fundo_id', $fundoId)
+                ->where('especie_id', $species->id)
+                ->where('codigo_anio', $year)
+                ->whereNull('deleted_at')
+                ->when($animal->exists, fn ($q) => $q->where('id', '!=', $animal->id))
+                ->max('codigo_secuencia');
 
-        $counter = DB::table('animal_code_sequences')
-            ->where('fundo_id', $fundoId)
-            ->where('especie_id', $species->id)
-            ->where('codigo_anio', $year)
-            ->lockForUpdate()
-            ->first();
-
-        $number = $requestedNumber ?? ((int) $counter->ultimo_numero + 1);
-        if ($number < 1 || $number > 999) {
-            throw ValidationException::withMessages([
-                'codigoNumero' => 'La numeración debe estar entre 001 y 999.',
-            ]);
-        }
-
-        if ($requestedNumber === null) {
-            while ($number <= 999 && $this->isReserved($fundoId, $animal->id, $prefix, $year, $number)) {
+            $number = $maxUsed + 1;
+            while ($number <= 999 && $this->isReserved($fundoId, $animal->id, $prefix, $species->id, $year, $number)) {
                 $number++;
             }
-        } elseif ($this->isReserved($fundoId, $animal->id, $prefix, $year, $number)) {
-            throw ValidationException::withMessages([
-                'codigoNumero' => 'Este número ya está asignado a otro animal.',
-            ]);
+
+            if ($number > 999) {
+                throw ValidationException::withMessages([
+                    'codigoNumero' => 'La numeración anual para esta especie está agotada.',
+                ]);
+            }
         }
 
-        if ($number > 999) {
-            throw ValidationException::withMessages([
-                'codigoNumero' => 'La numeración anual para esta especie está agotada.',
-            ]);
-        }
-
-        DB::table('animal_code_sequences')
-            ->where('id', $counter->id)
-            ->update([
-                'ultimo_numero' => max((int) $counter->ultimo_numero, $number),
+        DB::table('animal_code_sequences')->updateOrInsert(
+            [
+                'fundo_id' => $fundoId,
+                'especie_id' => $species->id,
+                'codigo_anio' => $year,
+            ],
+            [
+                'ultimo_numero' => $number,
                 'updated_at' => now(),
-            ]);
+            ]
+        );
 
         return [
             'arete' => self::format($prefix, $year, $number),
@@ -109,37 +120,37 @@ class AnimalCodeAllocator
 
     public function record(Animal $animal): void
     {
-        DB::table('animal_identifiers')->insertOrIgnore([
-            'fundo_id' => $animal->fundo_id,
-            'animal_id' => $animal->id,
-            'arete' => $animal->arete,
-            'codigo_prefijo' => $animal->codigo_prefijo,
-            'codigo_anio' => $animal->codigo_anio,
-            'codigo_secuencia' => $animal->codigo_secuencia,
-            'created_at' => now(),
-        ]);
+        DB::table('animal_identifiers')->updateOrInsert(
+            [
+                'fundo_id' => $animal->fundo_id,
+                'animal_id' => $animal->id,
+            ],
+            [
+                'arete' => $animal->arete,
+                'codigo_prefijo' => $animal->codigo_prefijo,
+                'codigo_anio' => $animal->codigo_anio,
+                'codigo_secuencia' => $animal->codigo_secuencia,
+                'created_at' => now(),
+            ]
+        );
     }
 
-    private function isReserved(int $fundoId, ?int $animalId, string $prefix, int $year, int $number): bool
+    private function isReserved(int $fundoId, ?int $animalId, string $prefix, int $speciesId, int $year, int $number): bool
     {
         $code = self::format($prefix, $year, $number);
 
         $animalQuery = DB::table('animales')
             ->where('fundo_id', $fundoId)
-            ->where(function ($query) use ($code, $prefix, $year, $number) {
+            ->whereNull('deleted_at')
+            ->where(function ($query) use ($code, $prefix, $speciesId, $year, $number) {
                 $query->where('arete', $code)
                     ->orWhere(function ($structured) use ($prefix, $year, $number) {
                         $structured->where('codigo_prefijo', $prefix)
                             ->where('codigo_anio', $year)
                             ->where('codigo_secuencia', $number);
-                    });
-            });
-        $historyQuery = DB::table('animal_identifiers')
-            ->where('fundo_id', $fundoId)
-            ->where(function ($query) use ($code, $prefix, $year, $number) {
-                $query->where('arete', $code)
-                    ->orWhere(function ($structured) use ($prefix, $year, $number) {
-                        $structured->where('codigo_prefijo', $prefix)
+                    })
+                    ->orWhere(function ($scoped) use ($speciesId, $year, $number) {
+                        $scoped->where('especie_id', $speciesId)
                             ->where('codigo_anio', $year)
                             ->where('codigo_secuencia', $number);
                     });
@@ -147,9 +158,8 @@ class AnimalCodeAllocator
 
         if ($animalId) {
             $animalQuery->where('id', '!=', $animalId);
-            $historyQuery->where('animal_id', '!=', $animalId);
         }
 
-        return $animalQuery->exists() || $historyQuery->exists();
+        return $animalQuery->exists();
     }
 }

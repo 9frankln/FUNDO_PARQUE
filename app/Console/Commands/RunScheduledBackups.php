@@ -29,7 +29,6 @@ class RunScheduledBackups extends Command
                         'backup_retention_count',
                         'backup_scope',
                         'backup_include_web',
-                        'backup_include_audit',
                     ])
                     ->pluck('valor', 'clave');
 
@@ -72,7 +71,6 @@ class RunScheduledBackups extends Command
                     scope: $scope,
                     components: [
                         'web' => filter_var($settings->get('backup_include_web', true), FILTER_VALIDATE_BOOL),
-                        'audit' => filter_var($settings->get('backup_include_audit', true), FILTER_VALIDATE_BOOL),
                     ],
                 );
                 $this->info("Fundo {$fundo->getKey()}: backup completed.");

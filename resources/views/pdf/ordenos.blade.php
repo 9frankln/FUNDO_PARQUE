@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Producción de leche | {{ $branding->name }} - {{ $fundo->nombre ?? 'Fundo' }}</title>
+    @php
+        $reportSummary = $reportSummary ?? '';
+        $filterSummary = $filterSummary ?? '';
+    @endphp
     <style>
-        @page { margin: 24px; }
+        @page { size: A4 landscape; margin: 14mm 10mm 16mm 10mm; }
         body {
             margin: 0;
             color: #0f2942;
@@ -12,13 +16,13 @@
             font-size: 8px;
         }
         .header {
-            margin-bottom: 11px;
-            padding: 0 0 9px;
-            border-bottom: 4px solid #06b6d4;
+            margin-bottom: 9px;
+            padding-bottom: 7px;
+            border-bottom: 3.5px solid {{ $pdfConfig->accentColor() }};
         }
         .eyebrow {
             margin: 0 0 3px;
-            color: #0891b2;
+            color: {{ $pdfConfig->accentColor() }};
             font-size: 7px;
             font-weight: bold;
             letter-spacing: 1px;
@@ -26,7 +30,7 @@
         }
         h1 {
             margin: 0 0 4px;
-            color: #075985;
+            color: {{ $pdfConfig->accentDark() }};
             font-size: 17px;
             line-height: 1.1;
         }
@@ -35,18 +39,18 @@
         .meta-table { margin-bottom: 11px; }
         .meta-table td {
             padding: 5px 7px;
-            border: 1px solid #bae6fd;
-            background: #e0f2fe;
+            border: 1px solid {{ $pdfConfig->accentBorder() }};
+            background: {{ $pdfConfig->accentSoft() }};
             vertical-align: top;
         }
-        .meta-label { color: #0369a1; font-weight: bold; }
+        .meta-label { color: {{ $pdfConfig->accentDark() }}; font-weight: bold; }
         .data-table { margin-top: 5px; }
         .data-table thead { display: table-header-group; }
         .data-table tr { page-break-inside: avoid; }
         .data-table th {
             padding: 6px 5px;
-            border: 1px solid #075985;
-            background: #0284c7;
+            border: 1px solid {{ $pdfConfig->accentDark() }};
+            background: {{ $pdfConfig->accentColor() }};
             color: #fff;
             font-size: 7.4px;
             text-align: left;
@@ -54,11 +58,11 @@
         }
         .data-table td {
             padding: 5px;
-            border: 1px solid #bae6fd;
+            border: 1px solid {{ $pdfConfig->accentBorder() }};
             vertical-align: top;
             word-wrap: break-word;
         }
-        .data-table tbody tr:nth-child(even) { background: #f0f9ff; }
+        .data-table tbody tr:nth-child(even) { background: {{ $pdfConfig->accentRowEven() }}; }
         .number { text-align: right; white-space: nowrap; }
         .center { text-align: center; white-space: nowrap; }
         .photo {
@@ -66,15 +70,18 @@
             min-width: 22px;
             padding: 2px 5px;
             border-radius: 3px;
-            background: #cffafe;
-            color: #155e75;
+            background: {{ $pdfConfig->accentSoft() }};
+            color: {{ $pdfConfig->accentDark() }};
+            border: 1px solid {{ $pdfConfig->accentBorder() }};
             font-weight: bold;
             text-align: center;
         }
         .empty { padding: 13px !important; color: #64748b; text-align: center; }
     </style>
+    @include('pdf.partials.styles')
 </head>
 <body>
+    @include('pdf.partials.watermark')
     @php
         $columnLabels = [
             'fecha' => 'Fecha',
@@ -93,28 +100,34 @@
             : 'Sin dato';
     @endphp
 
-    <div class="header">
-        <x-brand-logo pdf style="float: right; width: 28px; height: 28px; color: #0891b2; object-fit: contain" />
-        <p class="eyebrow">{{ $branding->tagline }} | Control de ordeño</p>
-        <h1>{{ $branding->name }} - Reporte de Producción de Leche</h1>
+    <div class="header" style="border-bottom-color: {{ $pdfConfig->accentColor() }};">
+        @if($pdfConfig->showHeaderLogo())
+            <x-brand-logo pdf style="float: right; width: 28px; height: 28px; color: {{ $pdfConfig->accentColor() }}; object-fit: contain" />
+        @endif
+        <p class="eyebrow" style="color: {{ $pdfConfig->accentColor() }};">{{ $branding->tagline }} | Control de ordeño</p>
+        <h1 style="color: {{ $pdfConfig->accentDark() }};">{{ $branding->name }} - Reporte de Producción de Leche</h1>
         <p class="subtitle">
             Fundo: <strong>{{ $fundo->nombre ?? 'Sin dato' }}</strong> |
             Generado el {{ $peruGeneratedAt }} (hora de Perú)
         </p>
     </div>
 
-    <table class="meta-table">
-        <tr>
-            <td><span class="meta-label">Administrador(es):</span> {{ $administrators ?: 'No asignado' }}</td>
-            <td><span class="meta-label">Generado por:</span> {{ $generatedBy ?: 'Sin dato' }}</td>
-        </tr>
-        <tr>
-            <td colspan="2"><span class="meta-label">Resumen:</span> {{ $reportSummary ?: 'Sin resumen' }}</td>
-        </tr>
-        <tr>
-            <td colspan="2"><span class="meta-label">Filtros aplicados:</span> {{ $filterSummary ?: 'Sin filtros adicionales' }}</td>
-        </tr>
-    </table>
+    <div class="summary-card" style="border: 1px solid {{ $pdfConfig->accentBorder() }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; overflow: hidden; background-color: {{ $pdfConfig->accentSoft() }}; margin-bottom: 9pt;">
+        <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; background: transparent;">
+            <tr>
+                <td style="width: 50%; border: none; border-right: 1px solid {{ $pdfConfig->accentBorder() }}; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Generado por:</strong> {{ $generatedBy ?: 'Sin dato' }}</td>
+                <td style="width: 50%; border: none; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Usuario / Documento:</strong> {{ auth()->user()?->name ?? 'Sistema' }} ({{ auth()->user()?->dni ? 'DNI: '.auth()->user()->dni : (auth()->user()?->username ? '@'.auth()->user()->username : 'Sistema') }})</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="border: none; @if(!empty($filterSummary) && $filterSummary !== 'Sin filtros adicionales') border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; @endif color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Resumen:</strong> {{ $reportSummary ?: 'Sin resumen' }}</td>
+            </tr>
+            @if(!empty($filterSummary) && $filterSummary !== 'Sin filtros adicionales')
+            <tr>
+                <td colspan="2" style="border: none; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Filtros aplicados:</strong> {{ $filterSummary }}</td>
+            </tr>
+            @endif
+        </table>
+    </div>
 
     <table class="data-table">
         <thead>
@@ -179,5 +192,8 @@
             @endforelse
         </tbody>
     </table>
+
+    @include('pdf.partials.signatures')
+    @include('pdf.partials.footer')
 </body>
 </html>

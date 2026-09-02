@@ -18,10 +18,9 @@
             </button>
         </div>
 
-        <div class="hidden items-center justify-between gap-6 sm:flex">
-            <p class="agro-pagination__summary">
-                Mostrando <strong>{{ $paginator->firstItem() }}</strong> a <strong>{{ $paginator->lastItem() }}</strong>
-                de <strong>{{ $paginator->total() }}</strong> resultados
+        <div class="hidden flex-wrap items-center justify-center gap-x-6 gap-y-2 sm:flex">
+            <p class="agro-pagination__summary hidden lg:block">
+                <strong>{{ $paginator->firstItem() }}</strong>–<strong>{{ $paginator->lastItem() }}</strong> de <strong>{{ $paginator->total() }}</strong>
             </p>
 
             <div class="inline-flex items-center gap-1" aria-label="Páginas disponibles">

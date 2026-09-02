@@ -131,7 +131,14 @@ class MovimientoShow extends Component
     {
         return Movimiento::query()
             ->where('fundo_id', session('fundo_id'))
-            ->with('categoria')
+            ->with([
+                'categoria',
+                'animalesVendidos:id,movimiento_venta_id,arete,nombre,foto_ruta,comprador_baja',
+                'compraMedicamento:id,movimiento_id,medicamento_id,numero_lote,fecha_vencimiento,cantidad_inicial,proveedor,comprobante,ubicacion',
+                'compraMedicamento.medicamento:id,nombre,unidad_stock,foto_ruta,foto_encuadre',
+                'compraInsumo:id,movimiento_id,insumo_id,numero_lote,fecha_vencimiento,cantidad_inicial,proveedor,comprobante,ubicacion',
+                'compraInsumo.insumo:id,nombre,unidad_stock,foto_ruta,foto_encuadre',
+            ])
             ->findOrFail($this->movId);
     }
 

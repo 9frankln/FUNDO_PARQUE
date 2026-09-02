@@ -2,16 +2,18 @@
 
 namespace App\Livewire\Finanzas;
 
-use App\Models\AsignacionFamiliar;
 use App\Models\CategoriaFinanciera;
 use App\Models\Fundo;
 use App\Models\Movimiento;
 use App\Traits\AuthorizesPermissions;
+use App\Support\PaginationOptions;
+use App\Traits\HasPdfPreviewModal;
 use App\Traits\HasRecentRecord;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -19,7 +21,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use AuthorizesPermissions, HasRecentRecord, WithPagination;
+    use AuthorizesPermissions, HasPdfPreviewModal, HasRecentRecord, WithPagination;
 
     private const PDF_MAX_ROWS = 500;
 
@@ -28,11 +30,6 @@ class Index extends Component
             'summary' => ['label' => 'Resumen financiero', 'description' => 'Totales y balance del periodo'],
             'records' => ['label' => 'Movimientos', 'description' => 'Registros esenciales de caja'],
             'categories' => ['label' => 'Categorías', 'description' => 'Totales agrupados por categoría'],
-        ],
-        'asignaciones' => [
-            'summary' => ['label' => 'Resumen de asignaciones', 'description' => 'Total, promedio y periodo'],
-            'records' => ['label' => 'Asignaciones', 'description' => 'Entregas esenciales registradas'],
-            'purposes' => ['label' => 'Propósitos', 'description' => 'Totales agrupados por destino'],
         ],
     ];
 
@@ -59,28 +56,7 @@ class Index extends Component
                 'total' => 'Total',
             ],
         ],
-        'asignaciones' => [
-            'summary' => [
-                'period' => 'Periodo',
-                'records' => 'Asignaciones',
-                'total' => 'Total entregado',
-                'average' => 'Promedio',
-            ],
-            'records' => [
-                'date' => 'Fecha',
-                'beneficiary' => 'Beneficiario',
-                'purpose' => 'Propósito',
-                'amount' => 'Monto',
-            ],
-            'purposes' => [
-                'purpose' => 'Propósito',
-                'records' => 'Entregas',
-                'total' => 'Total',
-            ],
-        ],
     ];
-
-    public string $tab = 'movimientos';
 
     public string $searchMovimiento = '';
 
@@ -100,23 +76,15 @@ class Index extends Component
 
     public string $conComprobante = '';
 
-    public string $searchAsignacion = '';
-
-    public string $propositoAsignacion = '';
-
-    public string $periodoAsignacion = '';
-
-    public string $fechaDesdeAsignacion = '';
-
-    public string $fechaHastaAsignacion = '';
-
-    public string $montoMinAsignacion = '';
-
-    public string $montoMaxAsignacion = '';
-
-    public string $conFoto = '';
-
     public int $perPage = 10;
+
+    public string $sortBy = 'fecha';
+
+    public string $sortDir = 'desc';
+
+    private const SORTABLE_COLUMNS = ['id', 'fecha', 'tipo', 'monto', 'descripcion'];
+
+    public string $tab = 'movimientos';
 
     public bool $showReportModal = false;
 
@@ -137,23 +105,14 @@ class Index extends Component
         'montoMinMovimiento' => ['except' => ''],
         'montoMaxMovimiento' => ['except' => ''],
         'conComprobante' => ['except' => ''],
-        'searchAsignacion' => ['except' => ''],
-        'propositoAsignacion' => ['except' => ''],
-        'periodoAsignacion' => ['except' => ''],
-        'fechaDesdeAsignacion' => ['except' => ''],
-        'fechaHastaAsignacion' => ['except' => ''],
-        'montoMinAsignacion' => ['except' => ''],
-        'montoMaxAsignacion' => ['except' => ''],
-        'conFoto' => ['except' => ''],
         'perPage' => ['except' => 10],
     ];
 
     protected $listeners = [
         'confirmarEliminacionMovimiento' => 'deleteMovimiento',
-        'confirmarEliminacionAsignacion' => 'deleteAsignacion',
     ];
 
-    private const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+    private const PER_PAGE_OPTIONS = PaginationOptions::PER_PAGE;
 
     private const MOVEMENT_FILTERS = [
         'searchMovimiento', 'tipoMovimiento', 'categoriaMovimiento',
@@ -161,18 +120,10 @@ class Index extends Component
         'montoMinMovimiento', 'montoMaxMovimiento', 'conComprobante',
     ];
 
-    private const ASSIGNMENT_FILTERS = [
-        'searchAsignacion', 'propositoAsignacion', 'periodoAsignacion',
-        'fechaDesdeAsignacion', 'fechaHastaAsignacion',
-        'montoMinAsignacion', 'montoMaxAsignacion', 'conFoto',
-    ];
-
-    public function mount(): void
+    public function mount(string $tab = 'movimientos'): void
     {
-        $this->tab = in_array($this->tab, ['movimientos', 'asignaciones'], true)
-            ? $this->tab
-            : 'movimientos';
-        $this->reportType = $this->tab;
+        $this->tab = in_array($tab, ['movimientos', 'asignaciones'], true) ? $tab : 'movimientos';
+        $this->reportType = 'movimientos';
         $this->reportColumns = $this->defaultReportColumns($this->reportType);
     }
 
@@ -189,7 +140,7 @@ class Index extends Component
     public function openReportModal(): void
     {
         $this->authorizePermission('finanzas', 'exportar');
-        $this->reportType = in_array($this->tab, ['movimientos', 'asignaciones'], true) ? $this->tab : 'movimientos';
+        $this->reportType = 'movimientos';
         $this->selectedReportSections = ['summary'];
         $this->reportColumns = $this->defaultReportColumns($this->reportType);
         $this->resetValidation();
@@ -210,9 +161,7 @@ class Index extends Component
         $fundoId = (int) session('fundo_id');
         abort_unless($fundoId, 403, 'Debe seleccionar un fundo.');
 
-        $records = $this->reportType === 'movimientos'
-            ? $this->movementQuery($fundoId)->orderByDesc('fecha')->orderByDesc('id')->limit(self::PDF_MAX_ROWS + 1)->get()
-            : $this->assignmentQuery($fundoId)->orderByDesc('fecha')->orderByDesc('id')->limit(self::PDF_MAX_ROWS + 1)->get();
+        $records = $this->movementQuery($fundoId)->orderByDesc('fecha')->orderByDesc('id')->limit(self::PDF_MAX_ROWS + 1)->get();
 
         if ($records->count() > self::PDF_MAX_ROWS) {
             $this->addError('selectedReportSections', 'El PDF admite hasta 500 registros. Aplica filtros para reducir el reporte.');
@@ -230,16 +179,22 @@ class Index extends Component
             ->pluck('users.name')
             ->filter()
             ->implode(', ') ?: 'No asignado';
-        $this->showReportModal = false;
+        $includeSignatures = $this->pdfIncludeSignatures;
+        $scale = $this->pdfScale;
+
+        if ($this->exportStep !== 'preview') {
+            $this->showReportModal = false;
+        }
 
         $pdf = Pdf::loadView('pdf.finance-index', compact(
-            'report', 'fundo', 'generatedBy', 'generatedAt', 'administrators', 'records'
+            'report', 'fundo', 'generatedBy', 'generatedAt', 'administrators', 'records', 'includeSignatures', 'scale'
         ))->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(
-            fn () => print ($pdf->output()),
+        return $this->setPdfPreview(
+            $pdf,
             'reporte_'.$this->reportType.'_'.now()->format('Ymd_His').'.pdf',
-            ['Content-Type' => 'application/pdf']
+            'Reporte Financiero de Movimientos',
+            $records->count()
         );
     }
 
@@ -247,17 +202,6 @@ class Index extends Component
     {
         if (in_array($property, self::MOVEMENT_FILTERS, true)) {
             $this->resetPage('movimientosPage');
-        }
-
-        if (in_array($property, self::ASSIGNMENT_FILTERS, true)) {
-            $this->resetPage('asignacionesPage');
-        }
-    }
-
-    public function updatedTab($value): void
-    {
-        if (! in_array($value, ['movimientos', 'asignaciones'], true)) {
-            $this->tab = 'movimientos';
         }
     }
 
@@ -289,45 +233,16 @@ class Index extends Component
         }
     }
 
-    public function updatedPeriodoAsignacion($value): void
-    {
-        if ($value !== '') {
-            $this->fechaDesdeAsignacion = '';
-            $this->fechaHastaAsignacion = '';
-        }
-    }
-
-    public function updatedFechaDesdeAsignacion($value): void
-    {
-        if ($value !== '') {
-            $this->periodoAsignacion = '';
-        }
-    }
-
-    public function updatedFechaHastaAsignacion($value): void
-    {
-        if ($value !== '') {
-            $this->periodoAsignacion = '';
-        }
-    }
-
     public function updatedPerPage($value): void
     {
         $this->perPage = in_array((int) $value, self::PER_PAGE_OPTIONS, true) ? (int) $value : 10;
         $this->resetPage('movimientosPage');
-        $this->resetPage('asignacionesPage');
     }
 
     public function resetMovimientoFilters(): void
     {
         $this->reset(self::MOVEMENT_FILTERS);
         $this->resetPage('movimientosPage');
-    }
-
-    public function resetAsignacionFilters(): void
-    {
-        $this->reset(self::ASSIGNMENT_FILTERS);
-        $this->resetPage('asignacionesPage');
     }
 
     public function solicitarEliminacionMovimiento($id): void
@@ -343,8 +258,11 @@ class Index extends Component
         ]);
     }
 
-    public function deleteMovimiento($id = null): void
-    {
+    public function deleteMovimiento(
+        \App\Services\MedicamentoPurchaseService $medPurchases,
+        \App\Services\InsumoPurchaseService $insPurchases,
+        $id = null
+    ): void {
         $this->authorizePermission('finanzas', 'eliminar');
         $id = is_array($id) ? ($id['id'] ?? null) : $id;
         $movimiento = Movimiento::query()
@@ -355,57 +273,58 @@ class Index extends Component
             return;
         }
 
-        $receipt = $movimiento->comprobante_ruta;
-        $movimiento->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($movimiento, $medPurchases, $insPurchases) {
+            $insumoLot = \App\Models\InsumoLote::query()->where('movimiento_id', $movimiento->id)->first();
+            if ($insumoLot) {
+                $used = $insPurchases->usedQuantity($insumoLot);
+                if ($used > 0) {
+                    $insumoLot->update(['movimiento_id' => null]);
+                } else {
+                    $insumoLot->movimientosInventario()->delete();
+                    $insumoLot->delete();
+                }
+            }
 
-        if ($receipt) {
-            Storage::disk('local')->delete($receipt);
-        }
+            $medLot = \App\Models\MedicamentoLote::query()->where('movimiento_id', $movimiento->id)->first();
+            if ($medLot) {
+                $used = $medPurchases->usedQuantity($medLot);
+                if ($used > 0) {
+                    $medLot->update(['movimiento_id' => null]);
+                } else {
+                    $medLot->movimientos()->delete();
+                    $medLot->delete();
+                }
+            }
+
+            $receipt = $movimiento->comprobante_ruta;
+            $movimiento->delete();
+
+            if ($receipt) {
+                \Illuminate\Support\Facades\Storage::disk('local')->delete($receipt);
+            }
+        });
 
         $this->dispatch('swal:toast', [
             'icon' => 'success',
             'title' => 'Movimiento eliminado',
-            'text' => 'El movimiento fue archivado correctamente.',
+            'text' => 'El movimiento y sus datos vinculados fueron eliminados correctamente.',
         ]);
     }
 
-    public function solicitarEliminacionAsignacion($id): void
+    public function sort(string $column): void
     {
-        $this->dispatch('swal:confirm', [
-            'title' => '¿Eliminar asignación familiar?',
-            'text' => 'La asignación será archivada y su foto dejará de estar disponible.',
-            'icon' => 'warning',
-            'confirmButtonText' => 'Sí, eliminar',
-            'cancelButtonText' => 'Cancelar',
-            'event' => 'confirmarEliminacionAsignacion',
-            'id' => $id,
-        ]);
-    }
-
-    public function deleteAsignacion($id = null): void
-    {
-        $this->authorizePermission('finanzas', 'eliminar');
-        $id = is_array($id) ? ($id['id'] ?? null) : $id;
-        $asignacion = AsignacionFamiliar::query()
-            ->where('fundo_id', session('fundo_id'))
-            ->find($id);
-
-        if (! $asignacion) {
+        if (! in_array($column, self::SORTABLE_COLUMNS, true)) {
             return;
         }
 
-        $photo = $asignacion->foto_ruta;
-        $asignacion->delete();
-
-        if ($photo) {
-            Storage::disk('local')->delete($photo);
+        if ($this->sortBy === $column) {
+            $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortBy = $column;
+            $this->sortDir = in_array($column, ['id', 'fecha', 'monto'], true) ? 'desc' : 'asc';
         }
 
-        $this->dispatch('swal:toast', [
-            'icon' => 'success',
-            'title' => 'Asignación eliminada',
-            'text' => 'La asignación fue archivada correctamente.',
-        ]);
+        $this->resetPage('movimientosPage');
     }
 
     public function render()
@@ -414,18 +333,15 @@ class Index extends Component
         abort_unless($fundoId, 403, 'Debe seleccionar un fundo.');
 
         $perPage = in_array($this->perPage, self::PER_PAGE_OPTIONS, true) ? $this->perPage : 10;
+        $sortBy = in_array($this->sortBy, self::SORTABLE_COLUMNS, true) ? $this->sortBy : 'fecha';
+        $sortDir = $this->sortDir === 'asc' ? 'asc' : 'desc';
+
         $movementQuery = $this->movementQuery($fundoId);
-        $assignmentQuery = $this->assignmentQuery($fundoId);
 
         $movimientos = $this->pinRecent($movementQuery, 'finanzas.movimientos')
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
+            ->orderBy($sortBy, $sortDir)
+            ->orderBy('id', $sortDir)
             ->paginate($perPage, ['*'], 'movimientosPage');
-
-        $asignaciones = $this->pinRecent($assignmentQuery, 'finanzas.asignaciones')
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
-            ->paginate($perPage, ['*'], 'asignacionesPage');
 
         $monthStart = now()->startOfMonth()->toDateString();
         $monthEnd = now()->endOfMonth()->toDateString();
@@ -438,10 +354,6 @@ class Index extends Component
         $ingresosMes = (float) ($movementStats?->ingresos ?? 0);
         $egresosMes = (float) ($movementStats?->egresos ?? 0);
         $balanceMes = $ingresosMes - $egresosMes;
-        $asignacionesMes = (float) AsignacionFamiliar::query()
-            ->where('fundo_id', $fundoId)
-            ->whereBetween('fecha', [$monthStart, $monthEnd])
-            ->sum('monto');
 
         $categorias = CategoriaFinanciera::query()
             ->where('activo', true)
@@ -453,23 +365,17 @@ class Index extends Component
         $hasMovementFilters = collect(self::MOVEMENT_FILTERS)->contains(
             fn ($property) => (string) $this->{$property} !== ''
         );
-        $hasAssignmentFilters = collect(self::ASSIGNMENT_FILTERS)->contains(
-            fn ($property) => (string) $this->{$property} !== ''
-        );
         $dashboardData = $this->dashboardData($fundoId);
         $reportSectionOptions = $this->reportSectionOptions();
         $reportColumnOptions = $this->reportColumnOptions();
 
         return view('livewire.finanzas.index', compact(
             'movimientos',
-            'asignaciones',
             'categorias',
             'ingresosMes',
             'egresosMes',
             'balanceMes',
-            'asignacionesMes',
             'hasMovementFilters',
-            'hasAssignmentFilters',
             'dashboardData',
             'reportSectionOptions',
             'reportColumnOptions'
@@ -479,7 +385,7 @@ class Index extends Component
     private function validatedReportSelection(): array
     {
         $this->validate([
-            'reportType' => ['required', Rule::in(['movimientos', 'asignaciones'])],
+            'reportType' => ['required', Rule::in(['movimientos'])],
         ]);
         $sections = self::REPORT_SECTIONS[$this->reportType];
         $columns = self::REPORT_COLUMNS[$this->reportType];
@@ -560,32 +466,11 @@ class Index extends Component
                         'total' => $currency((float) $group->sum('monto')),
                     ];
                 })->sortByDesc(fn (array $row) => (float) str_replace([',', 'S/. '], '', $row['total']))->values()->all();
-        } else {
-            $total = (float) $records->sum('monto');
-            $summary = [
-                'period' => $period,
-                'records' => number_format($records->count()),
-                'total' => $currency($total),
-                'average' => $currency($records->count() > 0 ? $total / $records->count() : 0),
-            ];
-            $rows = $records->map(fn (AsignacionFamiliar $assignment) => [
-                'date' => $assignment->fecha->format('d/m/Y'),
-                'beneficiary' => $assignment->beneficiario,
-                'purpose' => ucfirst(str_replace('_', ' ', $assignment->proposito)),
-                'amount' => $currency((float) $assignment->monto),
-            ])->all();
-            $aggregates = $records
-                ->groupBy('proposito')
-                ->map(fn (Collection $group, string $purpose) => [
-                    'purpose' => ucfirst(str_replace('_', ' ', $purpose)),
-                    'records' => number_format($group->count()),
-                    'total' => $currency((float) $group->sum('monto')),
-                ])->sortByDesc(fn (array $row) => (float) str_replace([',', 'S/. '], '', $row['total']))->values()->all();
         }
 
         return [
             'type' => $type,
-            'title' => $type === 'movimientos' ? 'Reporte de movimientos de caja' : 'Reporte de asignación familiar',
+            'title' => 'Reporte de movimientos de caja',
             'subtitle' => $this->reportFilterSummary($type),
             'sections' => $sections,
             'selectedColumns' => $selectedColumns,
@@ -610,8 +495,7 @@ class Index extends Component
 
     private function reportFilterSummary(string $type): string
     {
-        $properties = $type === 'movimientos' ? self::MOVEMENT_FILTERS : self::ASSIGNMENT_FILTERS;
-        $active = collect($properties)->filter(fn (string $property) => (string) $this->{$property} !== '')->count();
+        $active = collect(self::MOVEMENT_FILTERS)->filter(fn (string $property) => (string) $this->{$property} !== '')->count();
 
         return $active > 0
             ? "Datos según {$active} filtro(s) activo(s) en la tabla."
@@ -620,56 +504,56 @@ class Index extends Component
 
     private function dashboardData(int $fundoId): array
     {
-        $end = CarbonImmutable::today()->startOfMonth();
-        $start = $end->subMonthsNoOverflow(17);
-        $movements = Movimiento::query()
-            ->where('fundo_id', $fundoId)
-            ->whereDate('fecha', '>=', $start->toDateString())
-            ->with('categoria:id,nombre')
-            ->get(['id', 'categoria_id', 'tipo', 'monto', 'fecha']);
-        $assignments = AsignacionFamiliar::query()
-            ->where('fundo_id', $fundoId)
-            ->whereDate('fecha', '>=', $start->toDateString())
-            ->get(['id', 'proposito', 'monto', 'fecha']);
-        $movementsByMonth = $movements->groupBy(fn (Movimiento $movement) => $movement->fecha->format('Y-m'));
-        $assignmentsByMonth = $assignments->groupBy(fn (AsignacionFamiliar $assignment) => $assignment->fecha->format('Y-m'));
-        $months = [];
-        $monthNames = [1 => 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        return Cache::remember("finanzas.dashboard.{$fundoId}", now()->addMinutes(2), function () use ($fundoId) {
+            $end = CarbonImmutable::today()->startOfMonth();
+            $start = $end->subMonthsNoOverflow(17);
+            $movements = Movimiento::query()
+                ->where('fundo_id', $fundoId)
+                ->whereDate('fecha', '>=', $start->toDateString())
+                ->with('categoria:id,nombre')
+                ->get(['id', 'categoria_id', 'tipo', 'monto', 'fecha', 'beneficiario', 'proposito']);
+            $movementsByMonth = $movements->groupBy(fn (Movimiento $movement) => $movement->fecha->format('Y-m'));
+            $months = [];
+            $monthNames = [1 => 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-        for ($month = $start; $month->lessThanOrEqualTo($end); $month = $month->addMonth()) {
-            $monthMovements = $movementsByMonth->get($month->format('Y-m'), collect());
-            $monthAssignments = $assignmentsByMonth->get($month->format('Y-m'), collect());
-            $income = (float) $monthMovements->where('tipo', 'ingreso')->sum('monto');
-            $expenses = (float) $monthMovements->where('tipo', 'egreso')->sum('monto');
-            $expenseCategories = $monthMovements->where('tipo', 'egreso')
-                ->groupBy(fn (Movimiento $movement) => $movement->categoria?->nombre ?? 'Sin categoría')
-                ->map(fn (Collection $group) => round((float) $group->sum('monto'), 2))->all();
-            $incomeCategories = $monthMovements->where('tipo', 'ingreso')
-                ->groupBy(fn (Movimiento $movement) => $movement->categoria?->nombre ?? 'Sin categoría')
-                ->map(fn (Collection $group) => round((float) $group->sum('monto'), 2))->all();
-            $purposes = $monthAssignments->groupBy('proposito')
-                ->map(fn (Collection $group) => round((float) $group->sum('monto'), 2))->all();
+            for ($month = $start; $month->lessThanOrEqualTo($end); $month = $month->addMonth()) {
+                $monthMovements = $movementsByMonth->get($month->format('Y-m'), collect());
+                // Las asignaciones familiares viven dentro de los movimientos (categoría Asignación Familiar)
+                $monthAssignments = $monthMovements
+                    ->where('tipo', 'egreso')
+                    ->filter(fn (Movimiento $movement) => $this->esCategoriaAsignacionFamiliar($movement->categoria?->nombre ?? ''));
+                $income = (float) $monthMovements->where('tipo', 'ingreso')->sum('monto');
+                $expenses = (float) $monthMovements->where('tipo', 'egreso')->sum('monto');
+                $expenseCategories = $monthMovements->where('tipo', 'egreso')
+                    ->groupBy(fn (Movimiento $movement) => $movement->categoria?->nombre ?? 'Sin categoría')
+                    ->map(fn (Collection $group) => round((float) $group->sum('monto'), 2))->all();
+                $incomeCategories = $monthMovements->where('tipo', 'ingreso')
+                    ->groupBy(fn (Movimiento $movement) => $movement->categoria?->nombre ?? 'Sin categoría')
+                    ->map(fn (Collection $group) => round((float) $group->sum('monto'), 2))->all();
+                $purposes = $monthAssignments->groupBy('proposito')
+                    ->map(fn (Collection $group) => round((float) $group->sum('monto'), 2))->all();
 
-            $months[] = [
-                'period' => $month->format('Y-m'),
-                'label' => $monthNames[$month->month].' '.$month->format('y'),
-                'fullLabel' => $monthNames[$month->month].' '.$month->year,
-                'income' => round($income, 2),
-                'expenses' => round($expenses, 2),
-                'balance' => round($income - $expenses, 2),
-                'assignments' => round((float) $monthAssignments->sum('monto'), 2),
-                'movements' => $monthMovements->count(),
-                'assignmentRecords' => $monthAssignments->count(),
-                'expenseCategories' => $expenseCategories,
-                'incomeCategories' => $incomeCategories,
-                'purposes' => $purposes,
+                $months[] = [
+                    'period' => $month->format('Y-m'),
+                    'label' => $monthNames[$month->month].' '.$month->format('y'),
+                    'fullLabel' => $monthNames[$month->month].' '.$month->year,
+                    'income' => round($income, 2),
+                    'expenses' => round($expenses, 2),
+                    'balance' => round($income - $expenses, 2),
+                    'assignments' => round((float) $monthAssignments->sum('monto'), 2),
+                    'movements' => $monthMovements->count(),
+                    'assignmentRecords' => $monthAssignments->count(),
+                    'expenseCategories' => $expenseCategories,
+                    'incomeCategories' => $incomeCategories,
+                    'purposes' => $purposes,
+                ];
+            }
+
+            return [
+                'monthly' => $months,
+                'generatedAt' => now()->timezone('America/Lima')->format('d/m/Y H:i'),
             ];
-        }
-
-        return [
-            'monthly' => $months,
-            'generatedAt' => now()->timezone('America/Lima')->format('d/m/Y H:i'),
-        ];
+        });
     }
 
     private function movementQuery(int $fundoId): Builder
@@ -682,11 +566,27 @@ class Index extends Component
 
         return Movimiento::query()
             ->where('fundo_id', $fundoId)
-            ->with('categoria')
+            ->with([
+                'categoria',
+                'animalesVendidos:id,movimiento_venta_id,arete,nombre,comprador_baja',
+                'compraMedicamento:id,movimiento_id,medicamento_id,numero_lote,cantidad_inicial,proveedor',
+                'compraMedicamento.medicamento:id,nombre,unidad_stock,foto_ruta,foto_encuadre',
+                'compraInsumo:id,movimiento_id,insumo_id,numero_lote,cantidad_inicial,proveedor',
+                'compraInsumo.insumo:id,nombre,unidad_stock,foto_ruta,foto_encuadre',
+            ])
             ->when(trim($this->searchMovimiento) !== '', function (Builder $query) {
                 $search = trim($this->searchMovimiento);
                 $query->where(function (Builder $scope) use ($search) {
                     $scope->where('descripcion', 'like', "%{$search}%")
+                        ->orWhere('beneficiario', 'like', "%{$search}%")
+                        ->orWhere('proposito', 'like', "%{$search}%")
+                        ->orWhereHas('animalesVendidos', fn (Builder $animals) => $animals->where('arete', 'like', "%{$search}%"))
+                        ->orWhereHas('compraMedicamento', fn (Builder $lot) => $lot
+                            ->where('numero_lote', 'like', "%{$search}%")
+                            ->orWhereHas('medicamento', fn (Builder $medicine) => $medicine->where('nombre', 'like', "%{$search}%")))
+                        ->orWhereHas('compraInsumo', fn (Builder $lot) => $lot
+                            ->where('numero_lote', 'like', "%{$search}%")
+                            ->orWhereHas('insumo', fn (Builder $insumo) => $insumo->where('nombre', 'like', "%{$search}%")))
                         ->orWhereHas('categoria', fn (Builder $category) => $category->where('nombre', 'like', "%{$search}%"));
                 });
             })
@@ -696,34 +596,21 @@ class Index extends Component
             ->when($to, fn (Builder $query) => $query->whereDate('fecha', '<=', $to))
             ->when(is_numeric($this->montoMinMovimiento), fn (Builder $query) => $query->where('monto', '>=', (float) $this->montoMinMovimiento))
             ->when(is_numeric($this->montoMaxMovimiento), fn (Builder $query) => $query->where('monto', '<=', (float) $this->montoMaxMovimiento))
-            ->when($this->conComprobante === '1', fn (Builder $query) => $query->whereNotNull('comprobante_ruta'))
-            ->when($this->conComprobante === '0', fn (Builder $query) => $query->whereNull('comprobante_ruta'));
+            ->when($this->conComprobante === '1', fn (Builder $query) => $query->where(fn (Builder $scope) => $scope
+                ->whereNotNull('comprobante_ruta')
+                ->orWhereHas('compraMedicamento.medicamento', fn (Builder $medicine) => $medicine->whereNotNull('foto_ruta'))
+                ->orWhereHas('compraInsumo.insumo', fn (Builder $insumo) => $insumo->whereNotNull('foto_ruta'))))
+            ->when($this->conComprobante === '0', fn (Builder $query) => $query
+                ->whereNull('comprobante_ruta')
+                ->whereDoesntHave('compraMedicamento.medicamento', fn (Builder $medicine) => $medicine->whereNotNull('foto_ruta'))
+                ->whereDoesntHave('compraInsumo.insumo', fn (Builder $insumo) => $insumo->whereNotNull('foto_ruta')));
     }
 
-    private function assignmentQuery(int $fundoId): Builder
+    private function esCategoriaAsignacionFamiliar(string $categoryName): bool
     {
-        [$from, $to] = $this->dateRange(
-            $this->periodoAsignacion,
-            $this->fechaDesdeAsignacion,
-            $this->fechaHastaAsignacion
-        );
+        $name = mb_strtolower($categoryName);
 
-        return AsignacionFamiliar::query()
-            ->where('fundo_id', $fundoId)
-            ->when(trim($this->searchAsignacion) !== '', function (Builder $query) {
-                $search = trim($this->searchAsignacion);
-                $query->where(function (Builder $scope) use ($search) {
-                    $scope->where('beneficiario', 'like', "%{$search}%")
-                        ->orWhere('descripcion', 'like', "%{$search}%");
-                });
-            })
-            ->when($this->propositoAsignacion !== '', fn (Builder $query) => $query->where('proposito', $this->propositoAsignacion))
-            ->when($from, fn (Builder $query) => $query->whereDate('fecha', '>=', $from))
-            ->when($to, fn (Builder $query) => $query->whereDate('fecha', '<=', $to))
-            ->when(is_numeric($this->montoMinAsignacion), fn (Builder $query) => $query->where('monto', '>=', (float) $this->montoMinAsignacion))
-            ->when(is_numeric($this->montoMaxAsignacion), fn (Builder $query) => $query->where('monto', '<=', (float) $this->montoMaxAsignacion))
-            ->when($this->conFoto === '1', fn (Builder $query) => $query->whereNotNull('foto_ruta'))
-            ->when($this->conFoto === '0', fn (Builder $query) => $query->whereNull('foto_ruta'));
+        return str_contains($name, 'asignaci') || str_contains($name, 'familiar');
     }
 
     private function dateRange(string $period, string $customFrom, string $customTo): array
@@ -766,7 +653,6 @@ class Index extends Component
     {
         return [
             'finanzas.movimientos' => ['model' => Movimiento::class, 'tab' => 'movimientos'],
-            'finanzas.asignaciones' => ['model' => AsignacionFamiliar::class, 'tab' => 'asignaciones'],
         ];
     }
 }

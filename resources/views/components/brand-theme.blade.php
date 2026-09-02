@@ -10,9 +10,9 @@
         --bg-tertiary: color-mix(in srgb, rgb(var(--brand-50)) 62%, #eef1ef);
         --bg-elevated: color-mix(in srgb, rgb(var(--brand-100)) 42%, #e5e9e6);
         --text-primary: color-mix(in srgb, rgb(var(--brand-950)) 38%, #17202a);
-        --text-secondary: color-mix(in srgb, rgb(var(--brand-800)) 42%, #4b5563);
-        --text-muted: color-mix(in srgb, rgb(var(--brand-700)) 30%, #6b7280);
-        --border-primary: color-mix(in srgb, rgb(var(--brand-300)) 38%, #cfd6d1);
+        --text-secondary: color-mix(in srgb, rgb(var(--brand-800)) 52%, #3d4650);
+        --text-muted: color-mix(in srgb, rgb(var(--brand-700)) 40%, #49555f);
+        --border-primary: color-mix(in srgb, rgb(var(--brand-300)) 48%, #b6c0b9);
         --dialog-overlay: rgb(var(--brand-950) / 0.76);
     }
     .dark {
@@ -24,9 +24,9 @@
         --bg-tertiary: color-mix(in srgb, rgb(var(--brand-950)) 48%, #101512);
         --bg-elevated: color-mix(in srgb, rgb(var(--brand-900)) 38%, #1b211d);
         --text-primary: color-mix(in srgb, rgb(var(--brand-50)) 86%, #ffffff);
-        --text-secondary: color-mix(in srgb, rgb(var(--brand-200)) 58%, #cbd5e1);
-        --text-muted: color-mix(in srgb, rgb(var(--brand-300)) 35%, #94a3b8);
-        --border-primary: color-mix(in srgb, rgb(var(--brand-700)) 42%, #344039);
+        --text-secondary: color-mix(in srgb, rgb(var(--brand-200)) 60%, #cbd5e1);
+        --text-muted: color-mix(in srgb, rgb(var(--brand-300)) 42%, #a3b4a8);
+        --border-primary: color-mix(in srgb, rgb(var(--brand-700)) 52%, #3a4740);
         --dialog-overlay: rgb(var(--brand-950) / 0.86);
     }
 </style>

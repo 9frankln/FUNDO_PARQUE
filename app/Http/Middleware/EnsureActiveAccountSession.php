@@ -35,7 +35,18 @@ class EnsureActiveAccountSession
             return redirect()->route('home', ['login' => 1])->with('status', $reason);
         }
 
-        $this->sessions->touch($user, $sessionId, $request);
+        /*
+         * OPTIMIZACIÓN DE RENDIMIENTO:
+         * Antes se ejecutaba 1 SELECT + 1 UPDATE en `user_sessions` en CADA
+         * request (incluidos los de Livewire). Ahora el touch se difiere: solo
+         * escribe si pasaron >= 60 s desde la última escritura para esta sesión
+         * PHP (el timestamp se guarda en la propia sesión, sin queries extra).
+         */
+        $lastTouch = (int) $request->session()->get('session_touched_at', 0);
+        if (time() - $lastTouch >= 60) {
+            $this->sessions->touch($user, $sessionId, $request);
+            $request->session()->put('session_touched_at', time());
+        }
 
         return $next($request);
     }

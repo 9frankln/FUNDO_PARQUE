@@ -4,8 +4,8 @@ namespace App\Livewire\Animal;
 
 use App\Models\Animal;
 use App\Models\Fundo;
-use App\Models\ProfilaxisRegistro;
 use App\Traits\AuthorizesPermissions;
+use App\Traits\HasPdfPreviewModal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -15,13 +15,12 @@ use Livewire\Component;
 
 class Show extends Component
 {
-    use AuthorizesPermissions;
+    use AuthorizesPermissions, HasPdfPreviewModal;
 
     private const REPORT_SECTIONS = [
         'identity' => ['label' => 'Identificación y fotografía', 'description' => 'Perfil, código, edad y peso'],
         'productive' => ['label' => 'Datos productivos y de alta', 'description' => 'Procedencia, estados y observaciones'],
-        'clinical' => ['label' => 'Historial clínico', 'description' => 'Diagnósticos y tratamientos'],
-        'preventive' => ['label' => 'Profilaxis y vacunas', 'description' => 'Intervenciones preventivas'],
+        'clinical' => ['label' => 'Historial de salud', 'description' => 'Eventos, atenciones y planes de dosis'],
         'reproductive' => ['label' => 'Partos y crías', 'description' => 'Historial reproductivo'],
         'milk' => ['label' => 'Producción láctea', 'description' => 'Resumen y controles individuales'],
     ];
@@ -53,24 +52,14 @@ class Show extends Component
         ],
         'clinical' => [
             'date' => 'Fecha',
-            'classification' => 'Clasificación',
-            'status' => 'Estado clínico',
-            'diagnosis' => 'Síntomas / diagnóstico',
-            'treatment' => 'Tratamiento',
-            'medication' => 'Medicamento',
-            'dosage' => 'Dosis / vía',
+            'type' => 'Evento',
+            'classification' => 'Tipo específico',
+            'status' => 'Seguimiento',
+            'diagnosis' => 'Hallazgo / motivo',
+            'treatment' => 'Atención / indicaciones',
+            'medication' => 'Plan de dosis',
+            'dosage' => 'Severidad / zona',
             'evidence' => 'Evidencia adjunta',
-        ],
-        'preventive' => [
-            'date' => 'Fecha',
-            'intervention' => 'Tipo de intervención',
-            'product' => 'Producto / marca',
-            'purpose' => 'Propósito',
-            'dose' => 'Dosis',
-            'next_dose' => 'Calendario de dosis',
-            'responsible' => 'Responsable',
-            'observations' => 'Observaciones',
-            'evidence' => 'Evidencia',
         ],
         'reproductive' => [
             'date' => 'Fecha',
@@ -97,6 +86,10 @@ class Show extends Component
 
     public $animal;
 
+    public $timeline = [];
+
+    public $estadoClinicoActual = 'sano';
+
     public $showReportModal = false;
 
     public $selectedReportSections = ['identity'];
@@ -110,13 +103,69 @@ class Show extends Component
             'especie',
             'raza',
             'movimientoVenta',
-            'sanidadRegistros' => fn ($query) => $query->with(['medicamento', 'fotos'])->orderByDesc('fecha_evento')->orderByDesc('id'),
+            'sanidadRegistros' => fn ($query) => $query->with(['medicamento', 'fotos', 'dosisPlan.medicamento'])->orderByDesc('fecha_evento')->orderByDesc('id'),
             'partosMadre' => fn ($query) => $query->with(['cria', 'fotos'])->orderByDesc('fecha_parto')->orderByDesc('id'),
             'ordenoDetalles.ordeno',
             'partosCria.madre',
         ])->where('fundo_id', session('fundo_id'))->findOrFail($id);
+        $this->timeline = $this->buildTimeline();
+        $this->estadoClinicoActual = $this->currentClinicalStatus();
         $this->selectedReportSections = ['identity'];
         $this->reportColumns = $this->defaultReportColumns();
+    }
+
+    private function buildTimeline(): array
+    {
+        $events = [];
+
+        // Un evento de salud conserva su atencion y todas sus dosis.
+        foreach ($this->animal->sanidadRegistros as $san) {
+            $aplicadas = $san->dosisPlan->where('aplicada', true)->count();
+            $pendientes = $san->dosisPlan->where('aplicada', false)->count();
+            $events[] = [
+                'id' => 'san-'.$san->id,
+                'tipo' => 'salud',
+                'categoria' => $san->categoria_salud,
+                'fecha' => $san->fecha_evento,
+                'titulo' => $san->categoria_salud_label,
+                'subtitulo' => ucfirst(str_replace('_', ' ', $san->subtipo ?: 'otro')).($san->ubicacion_corporal ? ' · '.$san->ubicacion_corporal : ''),
+                'detalle' => $san->sintomas_diagnostico ?: 'Sin detalle',
+                'atencion' => $san->tratamiento ?: $san->producto_marca,
+                'estado' => $san->estado_seguimiento,
+                'estado_label' => $san->estado_seguimiento_label,
+                'medicamento' => $san->dosisPlan->map(fn ($d) => 'D'.$d->numero.' '.($d->medicamento?->nombre ?? $d->medicamento_nombre ?? 'Producto').' · '.($d->aplicada ? 'Aplicada' : $d->fecha_programada->format('d/m/Y')))->join(' | '),
+                'aplicadas' => $aplicadas,
+                'pendientes' => $pendientes,
+                'cierre' => $san->fecha_cierre,
+                'fotos' => $san->fotos,
+                'url' => route('monitoreo.sanidad.edit', $san->id),
+            ];
+        }
+
+        usort($events, fn ($a, $b) => [$b['fecha']->format('Y-m-d'), $b['id']] <=> [$a['fecha']->format('Y-m-d'), $a['id']]);
+
+        return $events;
+    }
+
+    private function currentClinicalStatus(): string
+    {
+        if (! $this->animal->activo) {
+            return 'inactivo';
+        }
+
+        // El evento de salud mas reciente marca el estado actual.
+        $ultimo = $this->animal->sanidadRegistros->first();
+        if (! $ultimo) {
+            return 'sano';
+        }
+        if ($ultimo->estado_seguimiento === 'completado') {
+            return 'sano';
+        }
+        if (in_array($ultimo->estado_seguimiento, ['critico', 'cuarentena'], true)) {
+            return 'alerta';
+        }
+
+        return 'tratamiento';
     }
 
     public static function reportSectionOptions(): array
@@ -191,19 +240,13 @@ class Show extends Component
             'sanidadRegistros' => fn ($q) => $q->orderByDesc('fecha_evento')->orderByDesc('id'),
             'sanidadRegistros.medicamento',
             'sanidadRegistros.fotos',
+            'sanidadRegistros.dosisPlan.medicamento',
             'partosMadre' => fn ($q) => $q->orderByDesc('fecha_parto')->orderByDesc('id'),
             'partosMadre.cria',
             'partosMadre.fotos',
             'ordenoDetalles' => fn ($q) => $q->with('ordeno')->whereHas('ordeno', fn ($oq) => $oq->where('fundo_id', $fundoId)),
             'partosCria.madre',
         ])->where('fundo_id', $fundoId)->findOrFail($this->animalId);
-
-        $profilaxis = ProfilaxisRegistro::where('fundo_id', $fundoId)
-            ->whereHas('animales', fn ($q) => $q->where('animal_id', $animal->id))
-            ->with(['animales', 'dosisProgramadas', 'fotos'])
-            ->orderByDesc('fecha_aplicacion')
-            ->orderByDesc('id')
-            ->get();
 
         $generatedBy = auth()->user()->name;
         $generatedAt = now();
@@ -235,26 +278,45 @@ class Show extends Component
             ->map(fn ($section) => self::REPORT_SECTIONS[$section]['label'])
             ->join(', ');
         $reportSummary = 'Secciones incluidas: '.$reportSummary.'. Registros disponibles: '
-            .$animal->sanidadRegistros->count().' clínicos, '
-            .$profilaxis->count().' profilácticos, '
+            .$animal->sanidadRegistros->count().' eventos de salud, '
             .$animal->partosMadre->count().' partos y '
             .$milkRecords->count().' controles de ordeño.';
-        $this->showReportModal = false;
+        // Solo cerrar el modal de opciones la PRIMERA vez (no al regenerar desde preview).
+        if ($this->exportStep !== 'preview') {
+            $this->showReportModal = false;
+        }
+
+        $includeSignatures = $this->pdfIncludeSignatures;
+        $scale = $this->pdfScale;
 
         $pdf = Pdf::loadView('pdf.animal', compact(
-            'animal', 'profilaxis', 'fundo', 'generatedBy', 'generatedAt', 'administrators',
-            'photoDataUri', 'milkRecords', 'milkSummary', 'reportSummary', 'selectedSections', 'selectedColumns'
+            'animal', 'fundo', 'generatedBy', 'generatedAt', 'administrators',
+            'photoDataUri', 'milkRecords', 'milkSummary', 'reportSummary', 'selectedSections', 'selectedColumns',
+            'includeSignatures', 'scale'
         ))->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(
-            fn () => print ($pdf->output()),
+        return $this->setPdfPreview(
+            $pdf,
             'ficha_animal_'.Str::slug($animal->arete, '_').'_'.now()->format('Ymd_His').'.pdf',
-            ['Content-Type' => 'application/pdf']
+            'Ficha de '.($animal->nombre ?: $animal->arete),
+            1
         );
     }
 
     public function render()
     {
+        if ($this->animal instanceof Animal) {
+            $this->animal->load([
+                'especie',
+                'raza',
+                'movimientoVenta',
+                'sanidadRegistros' => fn ($query) => $query->with(['medicamento', 'fotos', 'dosisPlan.medicamento'])->orderByDesc('fecha_evento')->orderByDesc('id'),
+                'partosMadre' => fn ($query) => $query->with(['cria', 'fotos'])->orderByDesc('fecha_parto')->orderByDesc('id'),
+                'ordenoDetalles.ordeno',
+                'partosCria.madre',
+            ]);
+        }
+
         return view('livewire.animal.show')
             ->layout('layouts.app');
     }

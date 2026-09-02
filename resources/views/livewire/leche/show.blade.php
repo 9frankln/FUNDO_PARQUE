@@ -57,8 +57,8 @@
     <!-- Observations -->
     @if($ordeno->observaciones)
         <div class="p-6 rounded-2xl bg-zinc-900 border border-zinc-800/80 space-y-2">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 border-b border-zinc-850 pb-2">Observaciones</h3>
-            <p class="text-sm text-zinc-350 leading-relaxed italic">"{{ $ordeno->observaciones }}"</p>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 border-b border-zinc-800 pb-2">Observaciones</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed italic">"{{ $ordeno->observaciones }}"</p>
         </div>
     @endif
 
@@ -77,12 +77,12 @@
                             <th class="p-4">Incidencia / Causa Excepción</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-zinc-850/60 text-sm text-zinc-300">
+                    <tbody class="divide-y divide-zinc-800/60 text-sm text-zinc-300">
                         @foreach($ordeno->detalles as $det)
                             @php
                                 $animal = $det->animal;
                             @endphp
-                            <tr class="hover:bg-zinc-850/20 transition duration-200">
+                            <tr class="hover:bg-zinc-800/20 transition duration-200">
                                 <td class="p-4">
                                     @if($animal && auth()->user()->tienePermiso('animal', 'leer'))
                                         <a href="{{ route('animal.show', $animal->id) }}" class="font-bold text-zinc-100 transition hover:text-emerald-700 dark:hover:text-emerald-400">
@@ -98,7 +98,7 @@
                                     @if($det->litros > 0)
                                         <span class="font-bold text-zinc-100">{{ $det->litros }} Litros</span>
                                     @else
-                                        <span class="text-zinc-550 font-bold">-</span>
+                                        <span class="text-zinc-500 font-bold">-</span>
                                     @endif
                                 </td>
                                 <td class="p-4">
@@ -116,3 +116,4 @@
         </div>
     @endif
 </div>
+

@@ -11,6 +11,7 @@ use App\Support\ImageFrame;
 use App\Support\ImageOptimizer;
 use App\Traits\AuthorizesPermissions;
 use App\Traits\PublishesRecentRecord;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -561,7 +562,7 @@ class Form extends Component
             Storage::disk('public')->delete($previousPhoto);
         }
 
-        $this->dispatch('swal:toast', [
+        session()->flash('swal', [
             'icon' => 'success',
             'title' => $this->isEdit ? '¡Actualizado!' : '¡Registrado!',
             'text' => $this->isEdit ? 'Animal modificado correctamente.' : 'Animal registrado correctamente.',
@@ -569,15 +570,18 @@ class Form extends Component
 
         $this->publishRecentRecord('animal.animales', $animal);
 
-        return redirect()->route('animal.index');
+        return $this->redirectRoute('animal.index', navigate: true);
     }
 
     public function render()
     {
+        // No se usa caché: la tabla es pequeña (8 registros) y el caché estático
+        // puede quedar corrupto causando que el dropdown "Tipo de animal" aparezca vacío.
         $especies = Especie::where('activo', true)
             ->whereNotNull('codigo_animal')
             ->orderBy('nombre')
             ->get();
+
         $razas = $this->especieId
             ? Raza::where('especie_id', $this->especieId)->where('activo', true)->get()
             : [];

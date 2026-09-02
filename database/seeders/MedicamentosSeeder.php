@@ -10,24 +10,24 @@ class MedicamentosSeeder extends Seeder
     public function run(): void
     {
         $medicamentos = [
-            ['nombre' => 'Ivermectina', 'tipo' => 'Desparasitante', 'presentacion' => 'Inyectable 50ml'],
-            ['nombre' => 'Albendazol', 'tipo' => 'Desparasitante', 'presentacion' => 'Oral 500ml'],
-            ['nombre' => 'Oxitetraciclina LA', 'tipo' => 'Antibiótico', 'presentacion' => 'Inyectable 100ml'],
-            ['nombre' => 'Penicilina + Estreptomicina', 'tipo' => 'Antibiótico', 'presentacion' => 'Inyectable 100ml'],
-            ['nombre' => 'Vacuna Aftosa', 'tipo' => 'Vacuna', 'presentacion' => 'Frasco 25 dosis'],
-            ['nombre' => 'Vacuna Carbunco', 'tipo' => 'Vacuna', 'presentacion' => 'Frasco 10 dosis'],
-            ['nombre' => 'Vacuna Clostridial', 'tipo' => 'Vacuna', 'presentacion' => 'Frasco 20 dosis'],
-            ['nombre' => 'Complejo B + ADE', 'tipo' => 'Vitamina', 'presentacion' => 'Inyectable 100ml'],
-            ['nombre' => 'Calcio Borogluconato', 'tipo' => 'Suplemento', 'presentacion' => 'Inyectable 500ml'],
-            ['nombre' => 'Fipronil', 'tipo' => 'Desparasitante Externo', 'presentacion' => 'Pour-on 1L'],
-            ['nombre' => 'Triclabendazol', 'tipo' => 'Desparasitante', 'presentacion' => 'Oral 1L'],
-            ['nombre' => 'Dexametasona', 'tipo' => 'Antiinflamatorio', 'presentacion' => 'Inyectable 50ml'],
+            ['nombre' => 'Ivermectina', 'tipo' => 'antiparasitario', 'presentacion' => 'Inyectable 50 ml', 'principio_activo' => 'Ivermectina', 'unidad_stock' => 'ml', 'via_predeterminada' => 'subcutanea'],
+            ['nombre' => 'Albendazol', 'tipo' => 'antiparasitario', 'presentacion' => 'Suspensión oral 500 ml', 'principio_activo' => 'Albendazol', 'unidad_stock' => 'ml', 'via_predeterminada' => 'oral'],
+            ['nombre' => 'Oxitetraciclina LA', 'tipo' => 'antibiotico', 'presentacion' => 'Inyectable 100 ml', 'principio_activo' => 'Oxitetraciclina', 'unidad_stock' => 'ml', 'via_predeterminada' => 'intramuscular'],
+            ['nombre' => 'Penicilina + Estreptomicina', 'tipo' => 'antibiotico', 'presentacion' => 'Inyectable 100 ml', 'principio_activo' => 'Penicilina + estreptomicina', 'unidad_stock' => 'ml', 'via_predeterminada' => 'intramuscular'],
+            ['nombre' => 'Vacuna Aftosa', 'tipo' => 'vacuna', 'presentacion' => 'Frasco 25 dosis', 'unidad_stock' => 'dosis', 'via_predeterminada' => 'subcutanea', 'condicion_almacenamiento' => 'refrigerado_2_8'],
+            ['nombre' => 'Vacuna Carbunco', 'tipo' => 'vacuna', 'presentacion' => 'Frasco 10 dosis', 'unidad_stock' => 'dosis', 'via_predeterminada' => 'subcutanea', 'condicion_almacenamiento' => 'refrigerado_2_8'],
+            ['nombre' => 'Vacuna Clostridial', 'tipo' => 'vacuna', 'presentacion' => 'Frasco 20 dosis', 'unidad_stock' => 'dosis', 'via_predeterminada' => 'subcutanea', 'condicion_almacenamiento' => 'refrigerado_2_8'],
+            ['nombre' => 'Complejo B + ADE', 'tipo' => 'vitamina_mineral', 'presentacion' => 'Inyectable 100 ml', 'unidad_stock' => 'ml', 'via_predeterminada' => 'intramuscular'],
+            ['nombre' => 'Calcio Borogluconato', 'tipo' => 'vitamina_mineral', 'presentacion' => 'Inyectable 500 ml', 'unidad_stock' => 'ml', 'via_predeterminada' => 'intravenosa'],
+            ['nombre' => 'Fipronil', 'tipo' => 'antiparasitario', 'presentacion' => 'Pour-on 1 L', 'principio_activo' => 'Fipronil', 'unidad_stock' => 'ml', 'via_predeterminada' => 'topica'],
+            ['nombre' => 'Triclabendazol', 'tipo' => 'antiparasitario', 'presentacion' => 'Suspensión oral 1 L', 'principio_activo' => 'Triclabendazol', 'unidad_stock' => 'ml', 'via_predeterminada' => 'oral'],
+            ['nombre' => 'Dexametasona', 'tipo' => 'antiinflamatorio', 'presentacion' => 'Inyectable 50 ml', 'principio_activo' => 'Dexametasona', 'unidad_stock' => 'ml', 'via_predeterminada' => 'intramuscular'],
         ];
 
         foreach ($medicamentos as $med) {
-            Medicamento::firstOrCreate(
+            Medicamento::updateOrCreate(
                 ['nombre' => $med['nombre'], 'fundo_id' => null],
-                ['tipo' => $med['tipo'], 'presentacion' => $med['presentacion']]
+                $med
             );
         }
     }

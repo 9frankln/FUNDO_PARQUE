@@ -9,31 +9,35 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('database_backups', function (Blueprint $table) {
-            $table->string('type', 20)->default('database')->after('trigger');
-            $table->string('format', 10)->default('sql')->after('type');
-            $table->unsignedBigInteger('record_count')->nullable()->after('size_bytes');
-            $table->unsignedBigInteger('photo_count')->nullable()->after('record_count');
-            $table->unsignedSmallInteger('manifest_version')->nullable()->after('photo_count');
-            $table->index(['fundo_id', 'type', 'created_at']);
-        });
+        if (! Schema::hasColumn('database_backups', 'type')) {
+            Schema::table('database_backups', function (Blueprint $table) {
+                $table->string('type', 20)->default('database')->after('trigger');
+                $table->string('format', 10)->default('sql')->after('type');
+                $table->unsignedBigInteger('record_count')->nullable()->after('size_bytes');
+                $table->unsignedBigInteger('photo_count')->nullable()->after('record_count');
+                $table->unsignedSmallInteger('manifest_version')->nullable()->after('photo_count');
+                $table->index(['fundo_id', 'type', 'created_at']);
+            });
+        }
 
-        Schema::create('backup_restores', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->foreignId('fundo_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('database_backup_id')->constrained('database_backups')->cascadeOnDelete();
-            $table->foreignId('pre_backup_id')->nullable()->constrained('database_backups')->nullOnDelete();
-            $table->foreignId('requested_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('mode', 20);
-            $table->string('status', 20);
-            $table->timestamp('started_at')->nullable();
-            $table->timestamp('completed_at')->nullable();
-            $table->timestamp('failed_at')->nullable();
-            $table->text('error_message')->nullable();
-            $table->timestamps();
-            $table->index(['fundo_id', 'status', 'created_at']);
-        });
+        if (! Schema::hasTable('backup_restores')) {
+            Schema::create('backup_restores', function (Blueprint $table) {
+                $table->id();
+                $table->uuid('uuid')->unique();
+                $table->foreignId('fundo_id')->constrained('fundos')->cascadeOnDelete();
+                $table->foreignId('database_backup_id')->constrained('database_backups')->cascadeOnDelete();
+                $table->foreignId('pre_backup_id')->nullable()->constrained('database_backups')->nullOnDelete();
+                $table->foreignId('requested_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->string('mode', 20);
+                $table->string('status', 20);
+                $table->timestamp('started_at')->nullable();
+                $table->timestamp('completed_at')->nullable();
+                $table->timestamp('failed_at')->nullable();
+                $table->text('error_message')->nullable();
+                $table->timestamps();
+                $table->index(['fundo_id', 'status', 'created_at']);
+            });
+        }
 
         $permissionId = DB::table('permisos')->where('modulo', 'ajustes')->where('accion', 'restaurar')->value('id');
         if (! $permissionId) {

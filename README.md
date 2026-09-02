@@ -16,6 +16,7 @@ composer install
 Copy-Item .env.example .env
 php artisan key:generate
 php artisan migrate --seed
+php artisan fundo:provision
 php artisan storage:link
 npm ci
 npm run build
@@ -46,9 +47,17 @@ composer test
 
 La suite usa SQLite en memoria y no modifica la base de datos configurada para desarrollo.
 
-## Acceso de demostración
+## Provisionamiento y demostración
 
-El seeder crea `admin@agrofundo.com` con la contraseña temporal `password`. Cambia esa contraseña inmediatamente y no uses estas credenciales en producción.
+`DatabaseSeeder` crea únicamente roles, permisos y catálogos base. No crea fundos, usuarios ni datos operativos.
+
+`php artisan fundo:provision` solicita el fundo y las credenciales iniciales sin guardar una contraseña fija en el código. Para ejecución no interactiva, define temporalmente `INITIAL_ADMIN_PASSWORD` y pasa `--fundo`, `--name`, `--email` y `--username`.
+
+Datos ficticios, solo en `local` o `testing`:
+
+```powershell
+php artisan db:seed --class="Database\Seeders\DemoDataSeeder"
+```
 
 ## Seguridad
 

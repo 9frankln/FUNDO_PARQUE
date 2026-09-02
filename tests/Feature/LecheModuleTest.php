@@ -291,6 +291,41 @@ class LecheModuleTest extends TestCase
                 && $ordenos->first()->is($matchingRecord));
     }
 
+    public function test_batch_mode_auto_fills_milked_cows_from_eligible_animals(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        $species = \App\Models\Especie::create(['nombre' => 'Bovino', 'codigo_animal' => 'BOV', 'activo' => true]);
+        $breed = \App\Models\Raza::create(['especie_id' => $species->id, 'nombre' => 'Holstein', 'activo' => true]);
+        foreach (['BOV26-020', 'BOV26-021', 'BOV26-022'] as $arete) {
+            \App\Models\Animal::create([
+                'fundo_id' => $fundo->id,
+                'especie_id' => $species->id,
+                'raza_id' => $breed->id,
+                'arete' => $arete,
+                'genero' => 'hembra',
+                'tipo_alta' => 'compra',
+                'fecha_alta' => '2024-01-10',
+                'fecha_nacimiento' => '2020-05-01',
+                'apta_ordeno' => true,
+                'activo' => true,
+            ]);
+        }
+
+        Livewire::test(Form::class)
+            ->set('tipoRegistro', 'lote')
+            ->assertSet('cantidadVacas', '3')
+            ->set('litrosTotal', 245.50)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('leche.index'));
+
+        $ordeno = Ordeno::latest('id')->firstOrFail();
+        $this->assertSame('lote', $ordeno->tipo_registro);
+        $this->assertSame(3, $ordeno->cantidad_vacas);
+    }
+
     private function administratorWithFundo(): array
     {
         $user = User::factory()->create();

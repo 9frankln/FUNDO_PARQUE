@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2';
+window.Swal = Swal;
 
 // Polyfill for SVG templates in Alpine.js
 if (typeof SVGElement !== 'undefined' && !('content' in SVGElement.prototype)) {
@@ -24,7 +25,7 @@ const TARGET_IMAGE_BYTES = 1.5 * 1024 * 1024;
 const MAX_SOURCE_IMAGE_BYTES = 40 * 1024 * 1024;
 const MAX_SOURCE_IMAGE_PIXELS = 40_000_000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
-const IMAGE_FRAME_MIN_ZOOM = 1;
+const IMAGE_FRAME_MIN_ZOOM = 0.3;
 const IMAGE_FRAME_MAX_ZOOM = 2.5;
 
 const finiteNumber = (value, fallback) => {
@@ -387,7 +388,60 @@ const showFlashAlert = () => {
     showToast(data);
 };
 
-document.addEventListener('alpine:init', () => {
+let _idleTimeoutMs = 0;
+let _idleTimer = null;
+let _idleListenersAttached = false;
+
+const _resetIdleTimer = () => {
+    if (_idleTimer) {
+        clearTimeout(_idleTimer);
+        _idleTimer = null;
+    }
+    if (!_idleTimeoutMs || _idleTimeoutMs <= 0 || _idleTimeoutMs > 2147483647) return;
+
+    _idleTimer = setTimeout(() => {
+        const form = document.getElementById('idle-logout-form');
+        if (!form) return;
+
+        // Protección de flujo activo: No cerrar sesión automáticamente si hay modales o visores abiertos
+        const hasActiveModal = document.querySelector('[role="dialog"], [aria-modal="true"], .agro-dialog-overlay, .agro-dialog-overlay--pdf, iframe');
+        if (hasActiveModal) {
+            _resetIdleTimer();
+            return;
+        }
+        form.submit();
+    }, _idleTimeoutMs);
+};
+
+const initializeIdleLogout = () => {
+    const form = document.getElementById('idle-logout-form');
+    if (!form) {
+        if (_idleTimer) {
+            clearTimeout(_idleTimer);
+            _idleTimer = null;
+        }
+        _idleTimeoutMs = 0;
+        return;
+    }
+
+    _idleTimeoutMs = Number(form.dataset.timeout) || 0;
+    _resetIdleTimer();
+
+    if (!_idleListenersAttached) {
+        _idleListenersAttached = true;
+        ['mousemove', 'mousedown', 'pointermove', 'click', 'keydown', 'touchstart', 'scroll', 'wheel'].forEach((event) => {
+            window.addEventListener(event, _resetIdleTimer, { passive: true });
+        });
+
+        window.addEventListener('focus', _resetIdleTimer, { passive: true });
+        window.addEventListener('blur', _resetIdleTimer, { passive: true });
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') _resetIdleTimer();
+        }, { passive: true });
+    }
+};
+
+const registerAlpineComponents = () => {
     Alpine.store('imageUploads', {
         active: 0,
 
@@ -477,7 +531,12 @@ document.addEventListener('alpine:init', () => {
         focusX: config.focusX ?? 50,
         focusY: config.focusY ?? 50,
         zoom: config.zoom ?? IMAGE_FRAME_MIN_ZOOM,
-        previewMode: 'horizontal',
+        minZoom: config.minZoom ?? IMAGE_FRAME_MIN_ZOOM,
+        maxZoom: config.maxZoom ?? IMAGE_FRAME_MAX_ZOOM,
+        simple: Boolean(config.simple),
+        screen: config.screen || 'desktop',
+        frames: {},
+        previewMode: config.previewMode || 'square',
         snapshot: null,
         returnFocus: null,
         dragging: false,
@@ -497,6 +556,7 @@ document.addEventListener('alpine:init', () => {
             this.$watch('visible', (visible) => this.syncVisibility(visible));
 
             if (this.visible) {
+                if (this.simple && Number(this.zoom) < this.minZoom) this.zoom = this.minZoom;
                 this.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
                 this.captureSnapshot();
                 this.syncVisibility(true);
@@ -523,7 +583,7 @@ document.addEventListener('alpine:init', () => {
             this.snapshot = {
                 focusX: this.clamp(this.number(this.focusX, 50), 0, 100),
                 focusY: this.clamp(this.number(this.focusY, 50), 0, 100),
-                zoom: this.clamp(this.number(this.zoom, IMAGE_FRAME_MIN_ZOOM), IMAGE_FRAME_MIN_ZOOM, IMAGE_FRAME_MAX_ZOOM),
+                zoom: this.clamp(this.number(this.zoom, this.minZoom), this.minZoom, this.maxZoom),
             };
         },
 
@@ -561,6 +621,7 @@ document.addEventListener('alpine:init', () => {
         open(event) {
             if (this.visible) return;
 
+            if (this.simple && Number(this.zoom) < this.minZoom) this.zoom = this.minZoom;
             this.returnFocus = event?.currentTarget instanceof HTMLElement
                 ? event.currentTarget
                 : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -677,7 +738,50 @@ document.addEventListener('alpine:init', () => {
         reset() {
             this.focusX = 50;
             this.focusY = 50;
-            this.zoom = IMAGE_FRAME_MIN_ZOOM;
+            this.zoom = this.minZoom;
+        },
+
+        switchScreen(next) {
+            if (next === this.screen) return;
+
+            // Guardar la posición actual de la pantalla saliente.
+            this.frames[this.screen] = {
+                x: this.number(this.focusX, 50),
+                y: this.number(this.focusY, 50),
+                zoom: this.number(this.zoom, this.minZoom),
+            };
+            this.screen = next;
+
+            // Restaurar la posición independiente de la pantalla entrante.
+            const saved = this.frames[next];
+            if (saved) {
+                this.focusX = this.clamp(saved.x, 0, 100);
+                this.focusY = this.clamp(saved.y, 0, 100);
+                this.zoom = this.clamp(saved.zoom, this.minZoom, this.maxZoom);
+            } else {
+                this.focusX = 50;
+                this.focusY = 50;
+                this.zoom = this.minZoom;
+            }
+        },
+
+        onWheel(event) {
+            const delta = event.deltaY < 0 ? 0.1 : -0.1;
+            this.zoom = this.clamp(Number(this.zoom) + delta, this.minZoom, this.maxZoom);
+        },
+
+        onKeydown(event) {
+            if (!event.ctrlKey && !event.metaKey) return;
+            if (event.key === '=' || event.key === '+') {
+                event.preventDefault();
+                this.zoom = this.clamp(Number(this.zoom) + 0.1, this.minZoom, this.maxZoom);
+            } else if (event.key === '-') {
+                event.preventDefault();
+                this.zoom = this.clamp(Number(this.zoom) - 0.1, this.minZoom, this.maxZoom);
+            } else if (event.key === '0') {
+                event.preventDefault();
+                this.reset();
+            }
         },
 
         startDrag(event) {
@@ -708,7 +812,7 @@ document.addEventListener('alpine:init', () => {
         drag(event) {
             if (!this.dragging || event.pointerId !== this.pointerId) return;
 
-            const sensitivity = 100 / this.clamp(this.zoom, IMAGE_FRAME_MIN_ZOOM, IMAGE_FRAME_MAX_ZOOM);
+            const sensitivity = 100 / this.clamp(this.zoom, this.minZoom, this.maxZoom);
             const nextX = this.startFocusX - ((event.clientX - this.startClientX) / this.frameWidth) * sensitivity;
             const nextY = this.startFocusY - ((event.clientY - this.startClientY) / this.frameHeight) * sensitivity;
             this.focusX = Math.round(this.clamp(nextX, 0, 100) * 10) / 10;
@@ -1411,6 +1515,7 @@ document.addEventListener('alpine:init', () => {
 
     Alpine.data('engordeDashboard', (payload = {}) => ({
         range: 12,
+        dropdownOpen: false,
         selectedPeriod: '',
         activePoint: null,
         monthly: Array.isArray(payload.monthly) ? payload.monthly : [],
@@ -1802,7 +1907,13 @@ document.addEventListener('alpine:init', () => {
             this.activePoint = null;
         },
     }));
-});
+};
+
+if (typeof Alpine !== 'undefined') {
+    registerAlpineComponents();
+}
+
+document.addEventListener('alpine:init', registerAlpineComponents);
 
 document.addEventListener('livewire:initialized', () => {
     Livewire.on('swal:toast', (event) => {
@@ -1824,6 +1935,15 @@ document.addEventListener('livewire:initialized', () => {
             }
         });
     });
+
+    Livewire.hook('request', ({ fail }) => {
+        fail(({ status, preventDefault }) => {
+            if (status === 419) {
+                preventDefault();
+                console.warn('Livewire session refreshed gracefully.');
+            }
+        });
+    });
 });
 
 document.addEventListener('DOMContentLoaded', showFlashAlert);
@@ -1831,3 +1951,24 @@ document.addEventListener('livewire:navigated', showFlashAlert);
 document.addEventListener('DOMContentLoaded', initializeIdleLogout);
 document.addEventListener('livewire:navigated', initializeIdleLogout);
 window.addEventListener('branding-updated', applyBranding);
+
+// Restaura el scroll del body cuando no hay modales REALMENTE visibles en pantalla
+const syncBodyScrollLock = () => {
+    const overlays = Array.from(document.querySelectorAll('.agro-dialog-overlay, .agro-dialog-overlay--pdf, .agro-dialog-overlay--full, .image-frame-editor-modal, [role="dialog"][aria-modal="true"]'));
+    const isAnyModalVisible = overlays.some((el) => {
+        if (el.hasAttribute('hidden') || el.style.display === 'none' || el.classList.contains('hidden') || el.hasAttribute('x-cloak')) {
+            return false;
+        }
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            return false;
+        }
+        return el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0;
+    });
+
+    document.body.classList.toggle('overflow-hidden', isAnyModalVisible);
+};
+const observer = new MutationObserver(syncBodyScrollLock);
+observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+document.addEventListener('DOMContentLoaded', syncBodyScrollLock);
+document.addEventListener('livewire:navigated', syncBodyScrollLock);

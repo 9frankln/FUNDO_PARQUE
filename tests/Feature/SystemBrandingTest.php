@@ -15,6 +15,14 @@ class SystemBrandingTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        \Illuminate\Support\Facades\Cache::flush();
+        app(SystemBranding::class)->invalidate();
+    }
+
     public function test_it_exposes_the_seeded_singleton_defaults_and_complete_safe_palette(): void
     {
         $branding = app(SystemBranding::class);

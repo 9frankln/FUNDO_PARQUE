@@ -43,7 +43,7 @@ class DatabaseBackupTest extends TestCase
         $this->assertSame(DatabaseBackup::STATUS_COMPLETED, $backup->status);
         $this->assertSame(DatabaseBackup::TYPE_DATABASE, $backup->type);
         $this->assertSame(DatabaseBackup::FORMAT_ZIP, $backup->format);
-        $this->assertSame('sqlite', $backup->database_driver);
+        $this->assertSame('mysql', $backup->database_driver);
         $this->assertNotNull($backup->completed_at);
         $this->assertSame(64, strlen($backup->checksum_sha256));
         $this->assertGreaterThan(0, $backup->record_count);
@@ -174,7 +174,7 @@ class DatabaseBackupTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_complete_backup_preserves_and_restores_web_while_audit_remains_append_only(): void
+    public function test_complete_backup_preserves_and_restores_web_content(): void
     {
         Storage::fake('backups');
         Storage::fake('local');
@@ -199,46 +199,27 @@ class DatabaseBackupTest extends TestCase
             'color' => 'sage',
             'logo_path' => 'branding/logo.webp',
         ]);
-        DB::table('auditoria_logs')->insert([
-            'fundo_id' => $fundo->id,
-            'user_id' => $user->id,
-            'accion' => 'auditoria.antes',
-            'modulo' => 'auditoria',
-            'detalle' => 'Evento incluido en archivo.',
-            'result' => 'exitoso',
-            'created_at' => now()->subMinute(),
-        ]);
 
         $service = app(FundoDatabaseBackupService::class);
         $backup = $service->create(
             fundo: $fundo,
             requestedBy: $user,
             scope: DatabaseBackup::TYPE_COMPLETE,
-            components: ['web' => true, 'audit' => true],
+            components: ['web' => true],
         );
         $manifest = $service->inspect($backup, $fundo);
 
-        $this->assertSame(['web' => true, 'audit' => true], $backup->components);
-        $this->assertSame(['web' => true, 'audit' => true], $manifest['components']);
+        $this->assertSame(['web' => true, 'audit' => false], $backup->components);
+        $this->assertSame(['web' => true, 'audit' => false], $manifest['components']);
         $this->assertArrayHasKey('landing_blocks', $manifest['system']['tables']);
         $this->assertArrayHasKey('media', $manifest['system']['tables']);
         $this->assertArrayHasKey('branding_settings', $manifest['system']['tables']);
-        $this->assertArrayHasKey('auditoria_logs', $manifest['system']['tables']);
+        $this->assertArrayNotHasKey('auditoria_logs', $manifest['system']['tables']);
         $this->assertGreaterThanOrEqual(2, $manifest['file_count']);
 
         $block->update(['title' => 'Portada modificada']);
         app(SystemBranding::class)->save(['name' => 'Identidad modificada']);
         $media->delete();
-        DB::table('auditoria_logs')->insert([
-            'fundo_id' => $fundo->id,
-            'user_id' => $user->id,
-            'accion' => 'auditoria.despues',
-            'modulo' => 'auditoria',
-            'detalle' => 'Este evento no debe desaparecer.',
-            'result' => 'exitoso',
-            'created_at' => now(),
-        ]);
-        $auditCount = DB::table('auditoria_logs')->count();
 
         $service->restore($backup, $fundo, $user, DatabaseBackup::TYPE_COMPLETE, 10);
 
@@ -246,8 +227,6 @@ class DatabaseBackupTest extends TestCase
         $this->assertDatabaseHas('media', ['id' => $media->id, 'model_type' => LandingBlock::class]);
         Storage::disk('public')->assertExists($mediaPath);
         $this->assertSame('Identidad respaldada', app(SystemBranding::class)->name());
-        $this->assertSame($auditCount, DB::table('auditoria_logs')->count());
-        $this->assertDatabaseHas('auditoria_logs', ['accion' => 'auditoria.despues']);
     }
 
     public function test_restore_rejects_a_tampered_archive_before_changing_data(): void
@@ -296,7 +275,6 @@ class DatabaseBackupTest extends TestCase
                 'backup_retention_count' => '2',
                 'backup_scope' => DatabaseBackup::TYPE_COMPLETE,
                 'backup_include_web' => 'false',
-                'backup_include_audit' => 'true',
             ] as $key => $value) {
                 DB::table('configuracion_sistema')->insert([
                     'fundo_id' => $fundo->id,
@@ -325,8 +303,8 @@ class DatabaseBackupTest extends TestCase
         $this->artisan('backups:run-scheduled')->assertSuccessful();
 
         $this->assertSame([
-            ['fundo' => $first->id, 'scope' => DatabaseBackup::TYPE_COMPLETE, 'components' => ['web' => false, 'audit' => true]],
-            ['fundo' => $second->id, 'scope' => DatabaseBackup::TYPE_COMPLETE, 'components' => ['web' => false, 'audit' => true]],
+            ['fundo' => $first->id, 'scope' => DatabaseBackup::TYPE_COMPLETE, 'components' => ['web' => false]],
+            ['fundo' => $second->id, 'scope' => DatabaseBackup::TYPE_COMPLETE, 'components' => ['web' => false]],
         ], $calls);
         $event = collect(app(Schedule::class)->events())->first(
             fn ($event) => str_contains($event->command ?? '', 'backups:run-scheduled')

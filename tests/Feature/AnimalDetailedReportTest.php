@@ -9,7 +9,6 @@ use App\Models\Fundo;
 use App\Models\Ordeno;
 use App\Models\OrdenoDetalle;
 use App\Models\Parto;
-use App\Models\ProfilaxisRegistro;
 use App\Models\Raza;
 use App\Models\SanidadRegistro;
 use App\Models\User;
@@ -34,8 +33,7 @@ class AnimalDetailedReportTest extends TestCase
             ->assertSee('Ver detalle y fotos')
             ->assertSee('Foto 1 del registro')
             ->assertSee('sm:flex-row', false)
-            ->assertSee('dark:bg-slate-900', false)
-            ->assertDontSee('bg-zinc-800', false);
+            ->assertSee('dark:bg-zinc-900', false);
     }
 
     public function test_integral_pdf_has_compact_landscape_layout_and_clean_milk_page(): void
@@ -43,11 +41,10 @@ class AnimalDetailedReportTest extends TestCase
         [$user, $fundo, $animal, $milkDetail] = $this->scenario();
         $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
-        $animal->load(['especie', 'raza', 'sanidadRegistros.medicamento', 'partosMadre.cria', 'partosCria.madre']);
+        $animal->load(['especie', 'raza', 'sanidadRegistros.medicamento', 'sanidadRegistros.fotos', 'sanidadRegistros.dosisPlan.medicamento', 'partosMadre.cria', 'partosCria.madre']);
         $milkRecords = collect([$milkDetail->load('ordeno')]);
         $data = [
             'animal' => $animal,
-            'profilaxis' => ProfilaxisRegistro::with(['animales', 'dosisProgramadas', 'fotos'])->get(),
             'fundo' => $fundo,
             'generatedBy' => $user->name,
             'generatedAt' => now(),
@@ -62,13 +59,13 @@ class AnimalDetailedReportTest extends TestCase
                 'average' => 11.5,
                 'last_date' => $milkDetail->ordeno->fecha,
             ],
-            'reportSummary' => '0 eventos clínicos, 0 intervenciones profilácticas, 0 partos y 1 control individual de ordeño.',
-            'selectedSections' => ['identity', 'productive', 'clinical', 'preventive', 'reproductive', 'milk'],
+            'reportSummary' => '0 eventos clínicos, 0 partos y 1 control individual de ordeño.',
+            'selectedSections' => ['identity', 'productive', 'clinical', 'reproductive', 'milk'],
         ];
 
         $html = view('pdf.animal', $data)->render();
         $this->assertStringContainsString('Reporte Integral del Animal', $html);
-        $this->assertStringContainsString('Administrador(es)', $html);
+        $this->assertStringNotContainsString('Administrador(es)', $html);
         $this->assertStringContainsString('Contenido:', $html);
         $this->assertStringContainsString('class="animal-photo"', $html);
         $this->assertStringContainsString('data:image/png;base64,', $html);
@@ -79,10 +76,8 @@ class AnimalDetailedReportTest extends TestCase
         $this->assertStringNotContainsString('section page-break', $html);
         $this->assertStringNotContainsString('page-break-before: always', $html);
         $this->assertStringContainsString('Producción láctea individual', $html);
-        $this->assertStringContainsString('width="6.14%"', $html);
-        $this->assertStringContainsString('width="24.56%"', $html);
-        $this->assertStringContainsString('width="5.37%"', $html);
-        $this->assertStringContainsString('width="18.79%"', $html);
+        $this->assertStringContainsString('width="5.69%"', $html);
+        $this->assertStringContainsString('width="22.76%"', $html);
         $this->assertStringContainsString('width="7.41%"', $html);
         $this->assertStringContainsString('width="27.78%"', $html);
         $this->assertStringContainsString('width="9.52%"', $html);
@@ -95,9 +90,9 @@ class AnimalDetailedReportTest extends TestCase
             'selectedSections' => ['clinical'],
             'selectedColumns' => ['clinical' => ['date', 'treatment']],
         ]))->render();
-        $this->assertStringContainsString('Historial clínico', $partialHtml);
+        $this->assertStringContainsString('Historial de salud', $partialHtml);
         $this->assertStringContainsString('<th>Fecha</th>', $partialHtml);
-        $this->assertStringContainsString('<th>Tratamiento</th>', $partialHtml);
+        $this->assertStringContainsString('<th>Atención / indicaciones</th>', $partialHtml);
         $this->assertStringNotContainsString('Identificación y fotografía', $partialHtml);
         $this->assertStringNotContainsString('<th>Síntomas / diagnóstico</th>', $partialHtml);
 
@@ -118,6 +113,7 @@ class AnimalDetailedReportTest extends TestCase
         Livewire::test(Show::class, ['id' => $animal->id])
             ->call('downloadAnimalReport')
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
     }
 
@@ -131,7 +127,7 @@ class AnimalDetailedReportTest extends TestCase
             ->assertSet('showReportModal', true)
             ->assertSee('Generar ficha PDF del animal')
             ->assertSee('Seleccionar todas')
-            ->assertSee('Campos: Historial clínico')
+            ->assertSee('Campos: Historial de salud')
             ->assertSee('agro-dialog agro-dialog--full', false)
             ->assertSee('xl:grid-cols-[21rem_minmax(0,1fr)]', false)
             ->assertSee('h-[calc(100dvh-0.5rem)]', false)
@@ -153,6 +149,7 @@ class AnimalDetailedReportTest extends TestCase
             ->set('reportColumns.clinical', ['date', 'diagnosis', 'treatment'])
             ->call('downloadAnimalReport')
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
 
         Livewire::test(Show::class, ['id' => $animal->id])
@@ -233,18 +230,21 @@ class AnimalDetailedReportTest extends TestCase
             'dosis_via' => '5 ml vía intramuscular',
             'estado_clinico' => 'en_tratamiento',
         ]);
-        $preventive = ProfilaxisRegistro::create([
+        $preventive = SanidadRegistro::create([
             'fundo_id' => $fundo->id,
+            'animal_id' => $animal->id,
+            'tipo_evento' => 'preventivo',
+            'fecha_evento' => '2026-07-15',
             'alcance' => 'individual',
-            'fecha_aplicacion' => '2026-07-15',
             'tipo_intervencion' => 'vacuna',
             'proposito' => 'Prevención sanitaria',
             'producto_marca' => 'Vacuna de prueba',
-            'dosis' => '2 ml',
             'proxima_dosis' => '2026-08-15',
             'responsable' => 'Veterinario responsable',
+            'clasificacion' => 'enfermedad_infecciosa',
+            'sintomas_diagnostico' => 'Prevención sanitaria',
+            'estado_clinico' => 'en_tratamiento',
         ]);
-        $preventive->animales()->attach($animal->id);
         $birth = Parto::create([
             'fundo_id' => $fundo->id,
             'animal_madre_id' => $animal->id,
@@ -256,7 +256,7 @@ class AnimalDetailedReportTest extends TestCase
             'condicion_madre' => 'optima',
             'observaciones' => 'Control posterior de madre y cría',
         ]);
-        foreach ([$clinical, $birth] as $record) {
+        foreach ([$clinical, $preventive, $birth] as $record) {
             $record->fotos()->create([
                 'fundo_id' => $fundo->id,
                 'ruta' => 'fotos/animales/ficha.png',

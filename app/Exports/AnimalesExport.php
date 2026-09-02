@@ -234,10 +234,10 @@ class AnimalesExport implements FromCollection, WithColumnWidths, WithEvents, Wi
             );
         }
 
-        $sortBy = in_array($this->filters['sortBy'] ?? null, ['arete', 'nombre'], true)
+        $sortBy = in_array($this->filters['sortBy'] ?? null, ['id', 'arete', 'nombre', 'fecha_alta', 'peso'], true)
             ? $this->filters['sortBy']
-            : 'arete';
-        $sortDir = ($this->filters['sortDir'] ?? null) === 'desc' ? 'desc' : 'asc';
+            : 'id';
+        $sortDir = ($this->filters['sortDir'] ?? null) === 'asc' ? 'asc' : 'desc';
 
         return $query->orderBy($sortBy, $sortDir);
     }

@@ -9,18 +9,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('animales', function (Blueprint $table) {
-            $table->string('motivo_baja', 32)->nullable()->after('activo');
-            $table->date('fecha_baja')->nullable()->after('motivo_baja');
-            $table->string('detalle_baja', 255)->nullable()->after('fecha_baja');
-            $table->string('comprador_baja', 150)->nullable()->after('detalle_baja');
-            $table->foreignId('movimiento_venta_id')
-                ->nullable()
-                ->after('comprador_baja')
-                ->constrained('movimientos')
-                ->nullOnDelete();
-            $table->index(['fundo_id', 'activo', 'motivo_baja'], 'animales_inventory_status_index');
-        });
+        if (! Schema::hasColumn('animales', 'motivo_baja')) {
+            Schema::table('animales', function (Blueprint $table) {
+                $table->string('motivo_baja', 32)->nullable()->after('activo');
+                $table->date('fecha_baja')->nullable()->after('motivo_baja');
+                $table->string('detalle_baja', 255)->nullable()->after('fecha_baja');
+                $table->string('comprador_baja', 150)->nullable()->after('detalle_baja');
+                $table->foreignId('movimiento_venta_id')
+                    ->nullable()
+                    ->after('comprador_baja')
+                    ->constrained('movimientos')
+                    ->nullOnDelete();
+                $table->index(['fundo_id', 'activo', 'motivo_baja'], 'animales_inventory_status_index');
+            });
+        }
 
         $this->linkExistingAnimalSales();
     }

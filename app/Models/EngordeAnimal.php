@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class EngordeAnimal extends Model
 {
@@ -18,6 +19,23 @@ class EngordeAnimal extends Model
         'vendido' => 'Vendido',
         'baja' => 'Baja',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $model) {
+            $loteFundoId = $model->relationLoaded('lote')
+                ? $model->lote?->fundo_id
+                : ($model->lote_id ? DB::table('lotes_engorde')->where('id', $model->lote_id)->value('fundo_id') : null);
+
+            $animalFundoId = $model->relationLoaded('animal')
+                ? $model->animal?->fundo_id
+                : ($model->animal_id ? DB::table('animales')->where('id', $model->animal_id)->value('fundo_id') : null);
+
+            if ($loteFundoId !== null && $animalFundoId !== null && (int) $loteFundoId !== (int) $animalFundoId) {
+                throw new \InvalidArgumentException('El animal no pertenece al mismo fundo que el lote de engorde.');
+            }
+        });
+    }
 
     protected $table = 'engorde_animales';
 
@@ -61,8 +79,14 @@ class EngordeAnimal extends Model
         return $dias > 0 ? round(($this->peso_actual - $this->peso_inicial) / $dias, 2) : 0;
     }
 
+    protected ?array $memoizedReportMetrics = null;
+
     public function reportMetrics(?CarbonInterface $asOf = null): array
     {
+        if ($asOf === null && $this->memoizedReportMetrics !== null) {
+            return $this->memoizedReportMetrics;
+        }
+
         $asOf ??= now();
         $lastWeight = $this->relationLoaded('ultimoPesaje')
             ? $this->getRelation('ultimoPesaje')
@@ -84,7 +108,7 @@ class EngordeAnimal extends Model
             ? (int) floor($this->fecha_ingreso->diffInDays($lastWeight->fecha))
             : 0;
 
-        return [
+        $metrics = [
             'initial_weight' => $initialWeight,
             'reference_weight' => $referenceWeight,
             'last_weight' => $lastWeight,
@@ -94,5 +118,11 @@ class EngordeAnimal extends Model
             'average_daily_gain' => $measuredDays > 0 ? $gainKg / $measuredDays : null,
             'state_label' => self::STATE_LABELS[$this->estado] ?? ucfirst(str_replace('_', ' ', $this->estado)),
         ];
+
+        if ($asOf === null || $asOf->isSameMinute(now())) {
+            $this->memoizedReportMetrics = $metrics;
+        }
+
+        return $metrics;
     }
 }

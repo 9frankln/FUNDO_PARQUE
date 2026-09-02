@@ -18,7 +18,7 @@ class ExampleTest extends TestCase
 
         $response
             ->assertStatus(200)
-            ->assertSee('Acceso al sistema')
+            ->assertSee('Acceso privado')
             ->assertSee('AgroFundo')
             ->assertDontSee('Registrar nuevo usuario')
             ->assertDontSee('Laravel v');

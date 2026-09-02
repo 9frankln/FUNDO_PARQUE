@@ -138,6 +138,7 @@ class SystemBranding
             ? null
             : ImageFrame::normalize($values['logo_encuadre'] ?? null);
         $model = BrandingSetting::saveSingleton($values);
+        $this->invalidate();
         $this->settings = $this->sanitize($model->getAttributes());
         $this->putCache($this->settings);
 

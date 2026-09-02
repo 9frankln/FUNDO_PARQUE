@@ -196,18 +196,18 @@
                            @click="selectPeriod(selectedPeriod === month.period ? '' : month.period)">
                             
                             <!-- Highlight Area -->
-                            <rect x-show="activePoint === index || selectedPeriod === month.period"
-                                  :x="pointX(index) - 15" y="10" width="30" height="200"
+                            <rect x-show="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period)"
+                                  :x="(typeof pointX === 'function' ? pointX(index) : 0) - 15" y="10" width="30" height="200"
                                   class="fill-zinc-100/50 dark:fill-zinc-700/30 rx-4" rx="4" />
                             
-                            <line x-show="activePoint === index || selectedPeriod === month.period"
-                                  :x1="pointX(index)" y1="20" :x2="pointX(index)" y2="205"
+                            <line x-show="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period)"
+                                  :x1="typeof pointX === 'function' ? pointX(index) : 0" y1="20" :x2="typeof pointX === 'function' ? pointX(index) : 0" y2="205"
                                   class="stroke-indigo-500 dark:stroke-indigo-400" stroke-dasharray="4 4" stroke-width="2" />
 
-                            <circle :cx="pointX(index)" :cy="pointY(month.count)"
-                                    :r="activePoint === index || selectedPeriod === month.period ? 8 : 5"
+                            <circle :cx="typeof pointX === 'function' ? pointX(index) : 0" :cy="typeof pointY === 'function' ? pointY(month.count) : 0"
+                                    :r="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period) ? 8 : 5"
                                     class="fill-white stroke-indigo-500 transition-all duration-300 dark:fill-zinc-900 dark:stroke-indigo-400"
-                                    :stroke-width="activePoint === index || selectedPeriod === month.period ? 4 : 3" />
+                                    :stroke-width="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period) ? 4 : 3" />
                         </g>
                     </template>
                 </svg>

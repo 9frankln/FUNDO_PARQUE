@@ -27,22 +27,20 @@ class MonitoreoReportAndThemeTest extends TestCase
         $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
         Livewire::test(Index::class)
-            ->assertSeeInOrder(['Exportar PDF', 'Registrar Evento Clínico'])
-            ->assertSeeInOrder(['Síntomas / diagnóstico', 'Tratamiento / medicación', 'Estado'])
-            ->assertSee('table-fixed', false)
-            ->assertSee('w-[7%]', false)
-            ->assertSee('w-[16%]', false)
-            ->assertSee('w-[23%]', false)
+            ->assertSeeInOrder(['Exportar PDF', 'Registrar evento'])
+            ->assertSeeInOrder(['Hallazgo / motivo', 'Atención y dosis', 'Estado'])
+            ->assertSee('min-w-[1080px]', false)
+            ->assertSee('overflow-x-auto', false)
             ->assertSee('xl:hidden', false)
             ->assertSee('sm:flex-row', false)
-            ->assertSee('dark:bg-slate-950', false)
+            ->assertSee('dark:bg-zinc-950', false)
             ->call('openMonitoreoPdfModal')
             ->assertSet('showMonitoreoPdfModal', true)
             ->assertSet('monitoreoPdfSections', ['sanidad'])
             ->assertSee('Generar reporte PDF de Monitoreo')
             ->assertSee('Combina secciones y campos en un único PDF A4 horizontal.')
             ->assertSee('Seleccionar todas')
-            ->assertSee('dark:bg-slate-900', false)
+            ->assertSee('dark:bg-zinc-900', false)
             ->assertSee('sm:grid-cols-2', false)
             ->assertSee('agro-dialog agro-dialog--full', false)
             ->assertSee('xl:grid-cols-[21rem_minmax(0,1fr)]', false)
@@ -77,20 +75,21 @@ class MonitoreoReportAndThemeTest extends TestCase
         Livewire::test(Index::class)
             ->call('openMonitoreoPdfModal')
             ->set('monitoreoPdfSections', ['sanidad', 'partos'])
-            ->set('monitoreoPdfColumns.sanidad', ['fecha', 'animal', 'sintomas'])
+            ->set('monitoreoPdfColumns.sanidad', ['fecha', 'animal', 'hallazgo'])
             ->set('monitoreoPdfColumns.partos', ['fecha', 'madre', 'cria'])
             ->call('downloadMonitoreoReport')
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
 
         $html = view('pdf.monitoreo', [
             'reportSections' => [
                 [
                     'key' => 'sanidad',
-                    'label' => 'Historial clínico',
+                    'label' => 'Historial de salud',
                     'rows' => [],
-                    'columns' => ['fecha', 'sintomas'],
-                    'columnLabels' => ['fecha' => 'Fecha', 'sintomas' => 'Síntomas / Diagnóstico'],
+                    'columns' => ['fecha', 'hallazgo'],
+                    'columnLabels' => ['fecha' => 'Fecha', 'hallazgo' => 'Hallazgo / Motivo'],
                     'filterSummary' => 'Sin filtros activos',
                 ],
                 [
@@ -106,17 +105,17 @@ class MonitoreoReportAndThemeTest extends TestCase
             'generatedBy' => $user->name,
             'generatedAt' => now(),
             'administrators' => $user->name,
-            'reportSummary' => 'Historial clínico: 0 registro(s) · Partos: 0 registro(s)',
+            'reportSummary' => 'Historial de salud: 0 registro(s) · Partos: 0 registro(s)',
             'title' => 'Reporte integral de Monitoreo',
         ])->render();
 
-        $this->assertStringContainsString('Síntomas / Diagnóstico', $html);
-        $this->assertStringContainsString('Historial clínico', $html);
+        $this->assertStringContainsString('Hallazgo / Motivo', $html);
+        $this->assertStringContainsString('Historial de salud', $html);
         $this->assertStringContainsString('Partos', $html);
         $this->assertStringContainsString('Resumen del contenido exportado', $html);
         $this->assertStringContainsString('section-title sanidad', $html);
-        $this->assertStringContainsString('width="27.78%"', $html);
-        $this->assertStringContainsString('width="72.22%"', $html);
+        $this->assertStringContainsString('width="27.27%"', $html);
+        $this->assertStringContainsString('width="72.73%"', $html);
         $this->assertStringNotContainsString('Filtros aplicados', $html);
         $this->assertStringNotContainsString('page-break-before: always', $html);
         $this->assertStringContainsString('display: table-header-group', $html);
@@ -133,13 +132,14 @@ class MonitoreoReportAndThemeTest extends TestCase
         $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
         Livewire::test(SanidadForm::class)
-            ->assertSee('Fotos clínicas')
+            ->set('motivoAtencion', 'revision_general')
+            ->assertSee('Evidencia del evento')
             ->assertSee('máximo 3')
             ->assertSee('Una por vez o varias juntas')
             ->assertSee('Tomar foto')
             ->assertSee('Elegir fotos')
             ->assertSee('capture="environment"', false)
-            ->assertSee('Busca por código, nombre, tipo, especie o raza')
+            ->assertSee('Buscar por código, nombre, tipo, especie o raza')
             ->assertSee($animal->arete)
             ->assertSee('Vaca')
             ->assertSee('Seleccionar todos')
@@ -155,6 +155,7 @@ class MonitoreoReportAndThemeTest extends TestCase
             ->assertHasErrors('fotos.0');
 
         Livewire::test(SanidadForm::class)
+            ->set('motivoAtencion', 'revision_general')
             ->set('fotos', [
                 UploadedFile::fake()->image('uno.jpg'),
                 UploadedFile::fake()->image('dos.jpg'),
@@ -183,6 +184,8 @@ class MonitoreoReportAndThemeTest extends TestCase
         $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
         Livewire::test(SanidadForm::class)
+            ->set('motivoAtencion', 'herida_piel')
+            ->set('ubicacionCorporal', 'pata posterior')
             ->set('animalIds', [(string) $animal->id])
             ->set('sintomasDiagnostico', 'HERIDA LEVE')
             ->set('fotos', [UploadedFile::fake()->image('evidencia.jpg', 2400, 1800)])
@@ -210,6 +213,7 @@ class MonitoreoReportAndThemeTest extends TestCase
         $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
         Livewire::test(SanidadForm::class)
+            ->set('motivoAtencion', 'respiratorio')
             ->set('animalIds', [(string) $firstAnimal->id, (string) $secondAnimal->id])
             ->set('sintomasDiagnostico', 'CUADRO RESPIRATORIO COMPARTIDO')
             ->call('save')

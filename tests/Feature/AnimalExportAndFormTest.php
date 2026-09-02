@@ -116,6 +116,7 @@ class AnimalExportAndFormTest extends TestCase
         Livewire::test(Index::class)
             ->call('exportar', 'pdf', ['arete', 'nombre', 'edad', 'peso', 'tipo_alta', 'precio_compra', 'activo', 'fecha_alta'])
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
 
         Livewire::test(Index::class)

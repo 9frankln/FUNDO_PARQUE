@@ -10,6 +10,15 @@ class RegistroFoto extends Model
 {
     use BelongsToFundo, HasFactory;
 
+    protected static function booted(): void
+    {
+        static::deleting(function (self $foto): void {
+            if ($foto->ruta && \Illuminate\Support\Facades\Storage::disk('local')->exists($foto->ruta)) {
+                \Illuminate\Support\Facades\Storage::disk('local')->delete($foto->ruta);
+            }
+        });
+    }
+
     protected $fillable = [
         'fundo_id', 'ruta', 'encuadre', 'orden',
     ];

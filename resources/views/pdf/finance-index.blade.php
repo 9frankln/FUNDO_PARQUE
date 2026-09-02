@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>{{ $report['title'] }} | {{ $branding->name }}</title>
     <style>
-        @page { size: A4 landscape; margin: 18pt 20pt 28pt; }
+        @page { size: A4 landscape; margin: 14mm 10mm 16mm 10mm; }
         * { box-sizing: border-box; }
         body { margin: 0; color: #26342d; font-family: DejaVu Sans, sans-serif; font-size: 7.5pt; line-height: 1.3; }
         
@@ -26,7 +26,7 @@
             $altRowBg = $isViolet ? '#fdfaff' : '#f9fbfc';
         @endphp
 
-        .header { padding: 8pt 10pt; border-left: 4px solid {{ $primaryColor }}; background: {{ $secondaryBg }}; margin-bottom: 6pt; }
+        .header { padding: 9pt 11pt; border-left: 4px solid {{ $primaryColor }}; border-radius: 4px; background: linear-gradient(90deg, {{ $secondaryBg }} 0%, #ffffff 100%); margin-bottom: 7pt; }
         .eyebrow { margin: 0 0 2pt; color: {{ $eyebrowColor }}; font-size: 6.2pt; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
         h1 { margin: 0; color: #14231b; font-size: 15pt; line-height: 1.1; }
         .subtitle { margin: 3px 0 0; color: #627168; font-size: 7.2pt; }
@@ -60,12 +60,11 @@
         .data-alt tbody tr:nth-child(even) td { background: {{ $altRowBg }}; }
         
         .empty { padding: 10pt; border: 1px solid #dde6e0; color: #7a8980; text-align: center; }
-        .footer { position: fixed; right: 0; bottom: -21pt; left: 0; padding-top: 4pt; border-top: 1px solid #d8e2dc; color: #849189; font-size: 6pt; }
-        .page { float: right; }
-        .page::after { content: counter(page); }
     </style>
+    @include('pdf.partials.styles')
 </head>
 <body>
+    @include('pdf.partials.watermark')
     @php
         $recordWeights = [
             'date' => 12,
@@ -130,7 +129,9 @@
     @endphp
 
     <header class="header">
-        <x-brand-logo pdf style="float: right; width: 28pt; height: 28pt; color: {{ $eyebrowColor }}; object-fit: contain" />
+        @if($pdfConfig->showHeaderLogo())
+            <x-brand-logo pdf style="float: right; width: 28pt; height: 28pt; color: {{ $eyebrowColor }}; object-fit: contain" />
+        @endif
         <p class="eyebrow">{{ $branding->name }} · {{ $branding->tagline }} · Finanzas</p>
         <h1>{{ $report['title'] }}</h1>
         <p class="subtitle">{{ $report['subtitle'] }}</p>
@@ -141,7 +142,6 @@
             <td><span class="meta-label">Fundo</span><span class="meta-value">{{ $fundo->nombre }}</span></td>
             <td><span class="meta-label">Generado</span><span class="meta-value">{{ $generatedAt->copy()->timezone('America/Lima')->format('d/m/Y H:i') }}</span></td>
             <td><span class="meta-label">Responsable</span><span class="meta-value">{{ $generatedBy }}</span></td>
-            <td><span class="meta-label">Administración</span><span class="meta-value">{{ $administrators }}</span></td>
         </tr>
     </table>
 
@@ -365,8 +365,8 @@
         @php
             $aggregateColumns = $report['selectedColumns'][$aggregateSection] ?? [];
         @endphp
-        <section class="section" style="page-break-before: always;">
-            <h2 class="section-alt-title">{{ $report['sectionOptions'][$aggregateSection]['label'] }}</h2>
+        <section class="section" style="margin-top: 12pt; page-break-inside: auto;">
+            <h2 class="section-alt-title" style="page-break-after: avoid;">{{ $report['sectionOptions'][$aggregateSection]['label'] }}</h2>
             @if(count($report['aggregates']) > 0)
                 <table class="data-alt">
                     <thead>
@@ -392,9 +392,7 @@
         </section>
     @endif
 
-    <footer class="footer">
-        Reporte financiero generado por {{ $branding->name }}. Incluye únicamente la información esencial seleccionada.
-        <span class="page">Página </span>
-    </footer>
+    @include('pdf.partials.signatures')
+    @include('pdf.partials.footer')
 </body>
 </html>

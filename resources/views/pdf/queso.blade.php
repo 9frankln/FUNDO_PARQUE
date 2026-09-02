@@ -43,7 +43,7 @@
 <meta charset="UTF-8">
 <title>Reporte de producción de queso | {{ $branding->name }}</title>
 <style>
-@page { size: A4 landscape; margin: 18pt 20pt 28pt; }
+@page { size: A4 landscape; margin: 14mm 10mm 16mm 10mm; }
 * { box-sizing: border-box; }
 body {
     margin: 0;
@@ -65,9 +65,7 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
 .context-table td { padding: 5pt 6pt; border: 1px solid #d7e5dc; vertical-align: top; }
 .context-table td:first-child { width: 58%; background: #f6faf7; }
 .context-table td:last-child { width: 42%; background: #fbfcfb; }
-.context-label { display: block; margin-bottom: 2pt; color: #587064; font-size: 6.2pt; font-weight: bold; text-transform: uppercase; }
-.report-section { page-break-before: always; }
-.report-section.first { page-break-before: auto; }
+.report-section { margin-top: 10pt; margin-bottom: 10pt; page-break-inside: auto; }
 .section-heading { margin: 0 0 7pt; padding: 6pt 8pt; border-left: 4px solid #3f8a6b; background: #edf8f2; color: #285a47; font-size: 11pt; page-break-after: avoid; }
 .section-heading.daily { border-color: #b9812f; background: #fcf5e8; color: #6c4a1d; }
 .section-heading.weekly { border-color: #4383a2; background: #edf6fa; color: #315f75; }
@@ -118,44 +116,31 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
 .photo { display: block; width: 42pt; height: 32pt; border: 1px solid #d6c8ae; object-fit: cover; }
 .no-photo { color: #8a8174; font-size: 6.5pt; font-style: italic; }
 .empty { padding: 12pt !important; color: #718078; font-style: italic; text-align: center; }
-.footer {
-    position: fixed;
-    right: 0;
-    bottom: -21pt;
-    left: 0;
-    padding-top: 4pt;
-    border-top: 1px solid #d6e5d9;
-    color: #89998f;
-    font-size: 6.5pt;
-}
-.page-number { float: right; }
-.page-number::after { content: counter(page); }
 </style>
+@include('pdf.partials.styles')
 </head>
 <body>
-<div class="header">
-    <x-brand-logo pdf style="float: right; width: 28pt; height: 28pt; color: #3f7662; object-fit: contain" />
-    <p class="eyebrow">{{ $branding->tagline }} | Producción y transformación láctea</p>
-    <h1>{{ $branding->name }} - Reporte de Producción de Queso</h1>
+@include('pdf.partials.watermark')
+<div class="header" style="border-bottom-color: {{ $pdfConfig->accentColor() }};">
+    @if($pdfConfig->showHeaderLogo())
+        <x-brand-logo pdf style="float: right; width: 28pt; height: 28pt; color: {{ $pdfConfig->accentColor() }}; object-fit: contain" />
+    @endif
+    <p class="eyebrow" style="color: {{ $pdfConfig->accentColor() }};">{{ $branding->tagline }} | Producción y transformación láctea</p>
+    <h1 style="color: {{ $pdfConfig->accentDark() }};">{{ $branding->name }} - Reporte de Producción de Queso</h1>
     <p class="subtitle">Fundo: <strong>{{ $fundo->nombre }}</strong> &nbsp;&middot;&nbsp; Generado el {{ $generatedAt->copy()->timezone('America/Lima')->format('d/m/Y H:i') }} (hora Perú)</p>
 </div>
 
-<table class="meta-table">
-    <tr>
-        <td><span class="meta-label">Administrador(es):</span> {{ $administrators }}</td>
-        <td><span class="meta-label">Generado por:</span> {{ $generatedBy }}</td>
-    </tr>
-</table>
-
-<div class="context-title">Alcance del reporte</div>
-<table class="context-table">
-    <tr>
-        <td style="width: 100%; background: #f6faf7; padding: 4px 6px;">
-            <span class="context-label">Contenido seleccionado</span>
-            {{ $reportSummary }}
-        </td>
-    </tr>
-</table>
+    <div class="summary-card" style="border: 1px solid {{ $pdfConfig->accentBorder() }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; overflow: hidden; background-color: {{ $pdfConfig->accentSoft() }}; margin-bottom: 9pt;">
+        <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; background: transparent;">
+            <tr>
+                <td style="width: 50%; border: none; border-right: 1px solid {{ $pdfConfig->accentBorder() }}; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Generado por:</strong> {{ $generatedBy }}</td>
+                <td style="width: 50%; border: none; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Usuario / Documento:</strong> {{ auth()->user()?->name ?? 'Sistema' }} ({{ auth()->user()?->dni ? 'DNI: '.auth()->user()->dni : (auth()->user()?->username ? '@'.auth()->user()->username : 'Sistema') }})</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="border: none; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Alcance del reporte:</strong> {{ $reportSummary }}</td>
+            </tr>
+        </table>
+    </div>
 
 @php
     $renderedSection = 0;
@@ -606,9 +591,7 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
     </section>
 @endif
 
-<div class="footer">
-    {{ $branding->name }} · Producción de queso · {{ $fundo->nombre }} · {{ $generatedBy }}
-    <span class="page-number">Página </span>
-</div>
+@include('pdf.partials.signatures')
+@include('pdf.partials.footer')
 </body>
 </html>

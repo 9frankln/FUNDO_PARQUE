@@ -19,32 +19,34 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::table('sanidad_registros')
-            ->whereNotNull('evidencia_ruta')
-            ->where('evidencia_ruta', '!=', '')
-            ->orderBy('id')
-            ->chunkById(200, function ($records): void {
-                $now = now();
-                $rows = $records
-                    ->filter(fn ($record) => in_array(
-                        strtolower(pathinfo($record->evidencia_ruta, PATHINFO_EXTENSION)),
-                        ['jpg', 'jpeg', 'png', 'webp'],
-                        true
-                    ))
-                    ->map(fn ($record) => [
-                        'fundo_id' => $record->fundo_id,
-                        'fotografiable_type' => SanidadRegistro::class,
-                        'fotografiable_id' => $record->id,
-                        'ruta' => $record->evidencia_ruta,
-                        'orden' => 0,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ])->all();
+        if (Schema::hasTable('sanidad_registros') && Schema::hasColumn('sanidad_registros', 'evidencia_ruta')) {
+            DB::table('sanidad_registros')
+                ->whereNotNull('evidencia_ruta')
+                ->where('evidencia_ruta', '!=', '')
+                ->orderBy('id')
+                ->chunkById(200, function ($records): void {
+                    $now = now();
+                    $rows = $records
+                        ->filter(fn ($record) => in_array(
+                            strtolower(pathinfo($record->evidencia_ruta, PATHINFO_EXTENSION)),
+                            ['jpg', 'jpeg', 'png', 'webp'],
+                            true
+                        ))
+                        ->map(fn ($record) => [
+                            'fundo_id' => $record->fundo_id,
+                            'fotografiable_type' => SanidadRegistro::class,
+                            'fotografiable_id' => $record->id,
+                            'ruta' => $record->evidencia_ruta,
+                            'orden' => 0,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ])->all();
 
-                if ($rows !== []) {
-                    DB::table('registro_fotos')->insert($rows);
-                }
-            });
+                    if ($rows !== []) {
+                        DB::table('registro_fotos')->insert($rows);
+                    }
+                });
+        }
     }
 
     public function down(): void

@@ -44,7 +44,7 @@ class RecordActivity
         $prefix = explode('.', $routeName)[0];
 
         return match ($prefix) {
-            'animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo', 'ajustes', 'auditoria' => $prefix,
+            'animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo', 'ajustes', 'auditoria', 'medicamentos', 'insumos' => $prefix,
             'buscador' => 'buscador',
             default => 'cuenta',
         };

@@ -3,23 +3,31 @@
 namespace App\Livewire\Animal;
 
 use App\Exports\AnimalesExport;
+use App\Exports\AnimalesTemplateExport;
 use App\Models\Animal;
 use App\Models\Especie;
 use App\Models\Fundo;
 use App\Models\Raza;
+use App\Services\AnimalImportService;
 use App\Services\AnimalInventoryService;
 use App\Traits\AuthorizesPermissions;
+use App\Support\PaginationOptions;
+use App\Traits\HasPeriodoFilters;
+use App\Traits\HasPdfPreviewModal;
 use App\Traits\HasRecentRecord;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Index extends Component
 {
-    use AuthorizesPermissions, HasRecentRecord, WithPagination;
+    use AuthorizesPermissions, HasPdfPreviewModal, HasPeriodoFilters, HasRecentRecord, WithFileUploads, WithPagination;
 
     private const EXPORT_COLUMNS = [
         'arete' => 'Código del animal',
@@ -38,9 +46,9 @@ class Index extends Component
 
     private const PDF_MAX_ROWS = 1000;
 
-    private const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+    private const PER_PAGE_OPTIONS = PaginationOptions::PER_PAGE;
 
-    private const SORTABLE_COLUMNS = ['arete', 'nombre'];
+    private const SORTABLE_COLUMNS = ['id', 'arete', 'nombre', 'fecha_alta', 'peso', 'fecha_nacimiento'];
 
     public $search = '';
 
@@ -60,27 +68,19 @@ class Index extends Component
 
     public $tipoAlta = '';
 
-    public $fechaDesde = '';
+    public $sortBy = 'id';
 
-    public $fechaHasta = '';
+    public $sortDir = 'desc';
 
-    public $periodo = '';
-
-    public $anio = '';
-
-    public $mes = '';
-
-    public $sortBy = 'arete';
-
-    public $sortDir = 'asc';
-
-    public $showExportModal = false;
-
-    public $exportFormat = 'xlsx';
+    public $exportFormat = 'pdf';
 
     public $selectedColumns = ['arete', 'nombre', 'especie', 'raza', 'genero', 'edad', 'peso', 'tipo_alta', 'activo', 'fecha_alta'];
 
     public $availableColumns = self::EXPORT_COLUMNS;
+
+    public bool $pdfIncludeSignatures = true;
+
+    public string $pdfScale = '85';
 
     public bool $showStatusModal = false;
 
@@ -92,6 +92,14 @@ class Index extends Component
     public string $statusDate = '';
 
     public string $statusDetail = '';
+
+    public bool $showImportModal = false;
+
+    public $importFile = null;
+
+    public array $importSummary = [];
+
+    public bool $importSuccess = false;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -138,54 +146,6 @@ class Index extends Component
         $this->resetPage();
     }
 
-    public function updatedPeriodo($value): void
-    {
-        if ($value !== '') {
-            $this->reset(['anio', 'mes', 'fechaDesde', 'fechaHasta']);
-        }
-
-        $this->resetPage();
-    }
-
-    public function updatedAnio($value): void
-    {
-        $this->reset(['periodo', 'fechaDesde', 'fechaHasta']);
-
-        if ($value === '') {
-            $this->mes = '';
-        }
-
-        $this->resetPage();
-    }
-
-    public function updatedMes($value): void
-    {
-        if ($value !== '' && $this->anio === '') {
-            $this->anio = (string) now()->year;
-        }
-
-        $this->reset(['periodo', 'fechaDesde', 'fechaHasta']);
-        $this->resetPage();
-    }
-
-    public function updatedFechaDesde($value): void
-    {
-        if ($value !== '') {
-            $this->reset(['periodo', 'anio', 'mes']);
-        }
-
-        $this->resetPage();
-    }
-
-    public function updatedFechaHasta($value): void
-    {
-        if ($value !== '') {
-            $this->reset(['periodo', 'anio', 'mes']);
-        }
-
-        $this->resetPage();
-    }
-
     public function updatedPerPage($value): void
     {
         $this->perPage = in_array((int) $value, self::PER_PAGE_OPTIONS, true) ? (int) $value : 10;
@@ -222,15 +182,18 @@ class Index extends Component
             $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
         } else {
             $this->sortBy = $column;
-            $this->sortDir = 'asc';
+            $this->sortDir = in_array($column, ['id', 'peso', 'fecha_alta'], true) ? 'desc' : 'asc';
         }
     }
 
     public function solicitarEliminacion($id)
     {
+        $animal = Animal::find($id);
+        $nombre = $animal ? ($animal->nombre ? $animal->nombre.' ('.$animal->arete.')' : $animal->arete) : 'el animal';
+
         $this->dispatch('swal:confirm', [
-            'title' => '¿Eliminar animal?',
-            'text' => 'El registro será archivado (soft delete).',
+            'title' => '¿Estás seguro?',
+            'text' => 'Se eliminará y archivará el registro de '.$nombre.'.',
             'icon' => 'warning',
             'confirmButtonText' => 'Sí, eliminar',
             'cancelButtonText' => 'Cancelar',
@@ -252,8 +215,8 @@ class Index extends Component
             $animal->delete();
             $this->dispatch('swal:toast', [
                 'icon' => 'success',
-                'title' => 'Eliminado',
-                'text' => 'El animal ha sido archivado correctamente.',
+                'title' => 'Animal archivado',
+                'text' => 'El animal ha sido archivado exitosamente.',
             ]);
         }
     }
@@ -324,10 +287,10 @@ class Index extends Component
             $saleDate = $this->statusDate;
             $this->closeStatusModal();
 
-            return redirect()->route('finanzas.movimiento.create', [
+            return $this->redirectRoute('finanzas.movimiento.create', [
                 'animal' => $animalId,
                 'fecha_venta' => $saleDate,
-            ]);
+            ], navigate: true);
         }
 
         $inventory->deactivate($animal, $this->statusReason, $this->statusDate, trim($this->statusDetail) ?: null);
@@ -340,6 +303,60 @@ class Index extends Component
         ]);
 
         return null;
+    }
+
+    public function openImportModal(): void
+    {
+        $this->authorizePermission('animal', 'crear');
+        $this->resetValidation();
+        $this->reset(['importFile', 'importSummary', 'importSuccess']);
+        $this->showImportModal = true;
+    }
+
+    public function closeImportModal(): void
+    {
+        $this->resetValidation();
+        $this->reset(['showImportModal', 'importFile', 'importSummary', 'importSuccess']);
+    }
+
+    public function downloadImportTemplate()
+    {
+        $this->authorizePermission('animal', 'crear');
+        $fundoId = (int) session('fundo_id');
+        abort_unless($fundoId, 403, 'Debe seleccionar un fundo.');
+
+        $filename = 'plantilla_importacion_animales_'.now()->format('Ymd_His').'.xlsx';
+
+        return Excel::download(new AnimalesTemplateExport($fundoId), $filename);
+    }
+
+    public function processImport(AnimalImportService $importService)
+    {
+        $this->authorizePermission('animal', 'crear');
+        $fundoId = (int) session('fundo_id');
+        abort_unless($fundoId, 403, 'Debe seleccionar un fundo.');
+
+        $this->validate([
+            'importFile' => ['required', 'file', 'max:10240', 'mimes:xlsx,xls,csv,txt'],
+        ], [
+            'importFile.required' => 'Selecciona un archivo Excel (.xlsx, .xls) o CSV.',
+            'importFile.mimes' => 'El archivo debe ser de formato Excel (.xlsx, .xls) o CSV.',
+            'importFile.max' => 'El archivo no puede pesar más de 10 MB.',
+        ]);
+
+        $result = $importService->import($this->importFile, $fundoId, false);
+        $this->importSummary = $result;
+
+        if (($result['imported'] ?? 0) > 0) {
+            Cache::forget('animal.dashboard.v2.'.$fundoId);
+            $this->importSuccess = true;
+            $this->resetPage();
+            $this->dispatch('swal:toast', [
+                'icon' => 'success',
+                'title' => 'Importación exitosa',
+                'text' => "Se registraron exitosamente {$result['imported']} animales.",
+            ]);
+        }
     }
 
     public function exportar($format = null, $columns = null)
@@ -426,9 +443,9 @@ class Index extends Component
             return;
         }
 
-        $sortBy = in_array($this->sortBy, self::SORTABLE_COLUMNS, true) ? $this->sortBy : 'arete';
-        $sortDir = $this->sortDir === 'desc' ? 'desc' : 'asc';
-        $animales = $query->orderBy($sortBy, $sortDir)->get();
+        $sortBy = in_array($this->sortBy, self::SORTABLE_COLUMNS, true) ? $this->sortBy : 'id';
+        $sortDir = $this->sortDir === 'asc' ? 'asc' : 'desc';
+        $animales = $query->with(['especie', 'raza'])->orderBy($sortBy, $sortDir)->get();
         $fundo = Fundo::findOrFail($fundoId);
         $generatedBy = auth()->user()->name;
         $generatedAt = now();
@@ -442,7 +459,8 @@ class Index extends Component
             ->map(fn ($column) => self::EXPORT_COLUMNS[$column])
             ->join(', ', ' y ').'.';
         $filterSummary = $this->reportFilterSummary($filters);
-        $this->showExportModal = false;
+        $includeSignatures = $this->pdfIncludeSignatures;
+        $scale = $this->pdfScale;
 
         $pdf = Pdf::loadView('pdf.animales', compact(
             'animales',
@@ -452,13 +470,16 @@ class Index extends Component
             'generatedAt',
             'administrators',
             'reportSummary',
-            'filterSummary'
+            'filterSummary',
+            'includeSignatures',
+            'scale'
         ))->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(
-            fn () => print ($pdf->output()),
+        return $this->setPdfPreview(
+            $pdf,
             'inventario_animal_'.now()->format('Ymd_His').'.pdf',
-            ['Content-Type' => 'application/pdf']
+            'Inventario Animal ('.count($animales).' registros)',
+            $animales->count()
         );
     }
 
@@ -660,96 +681,91 @@ class Index extends Component
             ->selectRaw('SUM(CASE WHEN apta_ordeno = 1 THEN 1 ELSE 0 END) AS aptos')
             ->first();
 
-        $monthsList = collect(range(11, 0))->map(function ($i) {
-            return now()->subMonths($i)->format('Y-m');
-        });
-
-        $recentAnimals = Animal::where('fundo_id', $fundoId)
-            ->where('activo', true)
-            ->where('fecha_alta', '>=', now()->subMonths(12)->startOfMonth())
-            ->get(['fecha_alta', 'genero']);
-
-        $groupedByMonth = $recentAnimals->groupBy(function ($animal) {
-            return CarbonImmutable::parse($animal->fecha_alta)->format('Y-m');
-        });
-
-        $monthlyData = $monthsList->map(function ($period) use ($groupedByMonth) {
-            $dt = CarbonImmutable::createFromFormat('Y-m', $period);
-            $monthsEs = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            $fullMonthsEs = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-            $label = $monthsEs[$dt->month - 1].' '.$dt->format('y');
-            $fullLabel = $fullMonthsEs[$dt->month - 1].' '.$dt->year;
-
-            $items = $groupedByMonth->get($period, collect());
-
-            return [
-                'period' => $period,
-                'label' => $label,
-                'fullLabel' => $fullLabel,
-                'count' => $items->count(),
-                'hembras' => $items->where('genero', 'hembra')->count(),
-                'machos' => $items->where('genero', 'macho')->count(),
-            ];
-        })->values()->all();
-
         $totalAnimals = (int) ($stats->total ?? 0);
 
-        $especiesData = Animal::where('animales.fundo_id', $fundoId)
-            ->where('animales.activo', true)
-            ->leftJoin('especies', 'animales.especie_id', '=', 'especies.id')
-            ->selectRaw("COALESCE(especies.nombre, 'Sin Especie') as label, COUNT(*) as count")
-            ->groupBy('label')
-            ->orderBy('count', 'desc')
-            ->get()
-            ->map(function ($item) use ($totalAnimals) {
+        /*
+         * OPTIMIZACIÓN DE RENDIMIENTO:
+         * Las agregaciones del mini-dashboard (mensual por género, especies,
+         * estados, altas y productivo) se calculan en BD con GROUP BY y se
+         * cachean 5 minutos por fundo. Antes se cargaban 12 meses de animales
+         * completos a memoria en cada render.
+         */
+        $dashCacheKey = 'animal.dashboard.v2.'.$fundoId;
+
+        [$monthlyData, $especiesData, $estadosData, $altasData, $productivoData] = Cache::remember($dashCacheKey, now()->addMinutes(5), function () use ($fundoId, $totalAnimals): array {
+            // Altas mensuales por género — una sola query GROUP BY en BD.
+            $monthlyRaw = Animal::where('fundo_id', $fundoId)
+                ->where('activo', true)
+                ->where('fecha_alta', '>=', now()->subMonths(12)->startOfMonth())
+                ->selectRaw("substr(fecha_alta, 1, 7) as period, genero, COUNT(*) as count")
+                ->groupBy('period', 'genero')
+                ->get()
+                ->keyBy(fn ($item) => $item->period.'|'.$item->genero);
+
+            $monthsList = collect(range(11, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
+            $monthsEs = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            $fullMonthsEs = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+            $monthlyData = $monthsList->map(function ($period) use ($monthlyRaw, $monthsEs, $fullMonthsEs) {
+                $dt = CarbonImmutable::createFromFormat('Y-m', $period);
+                $hembras = (int) ($monthlyRaw->get($period.'|hembra')->count ?? 0);
+                $machos = (int) ($monthlyRaw->get($period.'|macho')->count ?? 0);
+
                 return [
-                    'label' => $item->label,
-                    'count' => (int) $item->count,
-                    'percentage' => $totalAnimals > 0 ? round(($item->count / $totalAnimals) * 100, 1) : 0,
+                    'period' => $period,
+                    'label' => $monthsEs[$dt->month - 1].' '.$dt->format('y'),
+                    'fullLabel' => $fullMonthsEs[$dt->month - 1].' '.$dt->year,
+                    'count' => $hembras + $machos,
+                    'hembras' => $hembras,
+                    'machos' => $machos,
                 ];
+            })->values()->all();
+
+            $withPercentage = fn ($rows) => collect($rows)->map(function ($item) use ($totalAnimals) {
+                $item['percentage'] = $totalAnimals > 0 ? round(($item['count'] / $totalAnimals) * 100, 1) : 0;
+
+                return $item;
             })->all();
 
-        $estadosData = Animal::where('fundo_id', $fundoId)
-            ->where('activo', true)
-            ->selectRaw("COALESCE(NULLIF(estado_reproductivo, ''), 'Sin Registro') as label, COUNT(*) as count")
-            ->groupBy('label')
-            ->orderBy('count', 'desc')
-            ->get()
-            ->map(function ($item) use ($totalAnimals) {
-                return [
-                    'label' => ucfirst($item->label),
-                    'count' => (int) $item->count,
-                    'percentage' => $totalAnimals > 0 ? round(($item->count / $totalAnimals) * 100, 1) : 0,
-                ];
-            })->all();
+            $especiesData = $withPercentage(Animal::where('animales.fundo_id', $fundoId)
+                ->where('animales.activo', true)
+                ->leftJoin('especies', 'animales.especie_id', '=', 'especies.id')
+                ->selectRaw("COALESCE(especies.nombre, 'Sin Especie') as label, COUNT(*) as count")
+                ->groupBy('label')
+                ->orderBy('count', 'desc')
+                ->get()
+                ->map(fn ($item) => ['label' => $item->label, 'count' => (int) $item->count])
+                ->all());
 
-        $altasData = Animal::where('fundo_id', $fundoId)
-            ->where('activo', true)
-            ->selectRaw("COALESCE(NULLIF(tipo_alta, ''), 'Desconocido') as label, COUNT(*) as count")
-            ->groupBy('label')
-            ->orderBy('count', 'desc')
-            ->get()
-            ->map(function ($item) use ($totalAnimals) {
-                return [
-                    'label' => ucfirst($item->label),
-                    'count' => (int) $item->count,
-                    'percentage' => $totalAnimals > 0 ? round(($item->count / $totalAnimals) * 100, 1) : 0,
-                ];
-            })->all();
+            $estadosData = $withPercentage(Animal::where('fundo_id', $fundoId)
+                ->where('activo', true)
+                ->selectRaw("COALESCE(NULLIF(estado_reproductivo, ''), 'Sin Registro') as label, COUNT(*) as count")
+                ->groupBy('label')
+                ->orderBy('count', 'desc')
+                ->get()
+                ->map(fn ($item) => ['label' => ucfirst($item->label), 'count' => (int) $item->count])
+                ->all());
 
-        $productivoData = Animal::where('fundo_id', $fundoId)
-            ->where('activo', true)
-            ->selectRaw("COALESCE(NULLIF(estado_productivo, ''), 'Sin Registro') as label, COUNT(*) as count")
-            ->groupBy('label')
-            ->orderBy('count', 'desc')
-            ->get()
-            ->map(function ($item) use ($totalAnimals) {
-                return [
-                    'label' => ucfirst($item->label),
-                    'count' => (int) $item->count,
-                    'percentage' => $totalAnimals > 0 ? round(($item->count / $totalAnimals) * 100, 1) : 0,
-                ];
-            })->all();
+            $altasData = $withPercentage(Animal::where('fundo_id', $fundoId)
+                ->where('activo', true)
+                ->selectRaw("COALESCE(NULLIF(tipo_alta, ''), 'Desconocido') as label, COUNT(*) as count")
+                ->groupBy('label')
+                ->orderBy('count', 'desc')
+                ->get()
+                ->map(fn ($item) => ['label' => ucfirst($item->label), 'count' => (int) $item->count])
+                ->all());
+
+            $productivoData = $withPercentage(Animal::where('fundo_id', $fundoId)
+                ->where('activo', true)
+                ->selectRaw("COALESCE(NULLIF(estado_productivo, ''), 'Sin Registro') as label, COUNT(*) as count")
+                ->groupBy('label')
+                ->orderBy('count', 'desc')
+                ->get()
+                ->map(fn ($item) => ['label' => ucfirst($item->label), 'count' => (int) $item->count])
+                ->all());
+
+            return [$monthlyData, $especiesData, $estadosData, $altasData, $productivoData];
+        });
 
         $dashboardData = [
             'generatedAt' => now()->format('H:i'),

@@ -17,7 +17,9 @@
             'colaboradores' => ['Equipo', 'Usuarios y accesos'],
             'roles' => ['Roles y permisos', 'Matriz de seguridad'],
             'general' => ['Preferencias', 'Marca y fundo'],
+            'pdf' => ['Reportes y PDF', 'Marca de agua y firmas'],
             'backup' => ['Backups', 'Protección e historial'],
+            'peligro' => ['Zona de peligro', 'Borrado total de datos'],
         ], fn ($tab) => $settingsTabAccess[$tab] ?? false, ARRAY_FILTER_USE_KEY);
     @endphp
 
@@ -29,6 +31,8 @@
                         @case('colaboradores')<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m19 0v-2a4 4 0 0 0-3-3.87M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-7.87a4 4 0 0 1 0 7.75"/></svg>@break
                         @case('roles')<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 4.5 6v5.5c0 4.6 3.2 7.9 7.5 9.5 4.3-1.6 7.5-4.9 7.5-9.5V6L12 3Z"/><path stroke-linecap="round" stroke-width="1.8" d="m9 12 2 2 4-4"/></svg>@break
                         @case('general')<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15.75A3.75 3.75 0 1 0 12 8.25a3.75 3.75 0 0 0 0 7.5Z"/><path stroke-linecap="round" stroke-width="1.8" d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4L14.4 21h-4l-.6-1.6a1.7 1.7 0 0 0-1.91.31l-.06.06L5 16.94l.06-.06A1.7 1.7 0 0 0 4.6 15L3 14.4v-4L4.6 9.8a1.7 1.7 0 0 0-.31-1.91l-.06-.06L7.06 5l.06.06A1.7 1.7 0 0 0 9 4.6L9.6 3h4l.6 1.6a1.7 1.7 0 0 0 1.91-.31l.06-.06L19 7.06l-.06.06A1.7 1.7 0 0 0 19.4 9l1.6.6v4l-1.6.6Z"/></svg>@break
+                        @case('pdf')<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>@break
+                        @case('peligro')<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v3.75m0 3.75h.008M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>@break
                         @default<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2ZM7 5v5h10V5M8 15h8"/></svg>
                     @endswitch
                 </span>
@@ -46,7 +50,7 @@
             </div>
         </div>
 
-        <div class="hidden grid-cols-2 gap-1.5 rounded-2xl border border-emerald-950/10 bg-white p-1.5 dark:border-emerald-200/10 dark:bg-emerald-950/25 sm:grid lg:grid-cols-4">
+        <div class="hidden grid-cols-2 gap-1.5 rounded-2xl border border-emerald-950/10 bg-white p-1.5 dark:border-emerald-200/10 dark:bg-emerald-950/25 sm:grid lg:grid-cols-6">
             @foreach($settingsTabs as $tab => [$label, $description])
                 <button type="button" wire:click="$set('activeTab', '{{ $tab }}')" class="min-w-0 rounded-xl px-3 py-3 text-left transition {{ $activeTab === $tab ? 'bg-emerald-700 text-white shadow-md dark:bg-emerald-400 dark:text-emerald-950' : 'text-zinc-500 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-200' }}">
                     <strong class="block truncate text-sm">{{ $label }}</strong><small class="mt-0.5 block truncate text-[10px] opacity-70">{{ $description }}</small>
@@ -88,8 +92,8 @@
                                     <td class="p-4"><span class="block font-semibold">{{ $usr->username }}</span><span class="text-xs text-zinc-500">{{ $usr->dni ? 'DNI '.$usr->dni : 'Sin DNI' }}</span></td>
                                     <td class="p-4"><div class="flex max-w-72 flex-wrap gap-1">@forelse($usr->roles as $role)<span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-bold dark:border-zinc-700 dark:bg-zinc-800">{{ $role->nombre }}</span>@empty<span class="text-xs text-zinc-500">Sin roles</span>@endforelse</div></td>
                                     <td class="p-4"><div class="flex flex-wrap items-center gap-2"><x-status-badge :value="$usr->estado" :tone="$usr->estado === 'activo' ? 'emerald' : ($usr->estado === 'suspendido' ? 'amber' : 'slate')" /><span class="text-[10px] font-bold {{ $isAdmin ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-500' }}">{{ $isAdmin ? 'Administrador' : 'Estándar' }}</span></div></td>
-                                    <td class="p-4"><span class="font-bold text-emerald-700 dark:text-emerald-300">{{ $usr->sesiones_activas_count }}</span><span class="text-xs text-zinc-500"> / {{ $usr->max_active_sessions === 0 ? 'Sin límite' : $usr->max_active_sessions }} activas</span></td>
-                                    <td class="p-4"><span class="inline-flex rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-bold text-sky-800 dark:bg-sky-400/10 dark:text-sky-300">{{ $usr->session_idle_timeout_minutes }} min</span></td>
+                                    <td class="p-4">@if($usr->session_idle_timeout_minutes === null && $isAdmin)<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300"><svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636a9 9 0 0 1 0 12.728m0 0-2.829-2.829m2.829 2.829L21 21M4.929 4.929a9 9 0 0 0 0 12.728m0 0 2.828-2.828M4.929 17.657 3 21m0 0 2.121-2.121M3 21l2.121-2.121"/></svg>Sin límite</span>@else<span class="font-bold text-emerald-700 dark:text-emerald-300">{{ $usr->sesiones_activas_count }}</span><span class="text-xs text-zinc-500"> / {{ $usr->max_active_sessions === 0 ? 'Sin límite' : $usr->max_active_sessions }} activas</span>@endif</td>
+                                    <td class="p-4">@if($usr->session_idle_timeout_minutes === null && $isAdmin)<span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">Sin límite</span>@else<span class="inline-flex rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-bold text-sky-800 dark:bg-sky-400/10 dark:text-sky-300">{{ $usr->session_idle_timeout_minutes ?: (int) config('session.lifetime', 30) }} min</span>@endif</td>
                                     <td class="p-4"><div class="flex justify-end gap-1.5">
                                         @if(auth()->user()->tienePermiso('ajustes', 'actualizar'))
                                             @if($canManageFundoAdmins)<x-table-action type="edit" wire:click="openUserFormModal({{ $usr->id }})" label="Editar datos" />@endif
@@ -116,10 +120,14 @@
                     @forelse($usuariosFundo as $usr)
                         @php
                             $membership = $usr->fundos->firstWhere('id', (int) session('fundo_id'));
+                            $isAdmin = (bool) $membership?->pivot?->es_administrador;
+                            $sessionInfo = $usr->session_idle_timeout_minutes === null && $isAdmin
+                                ? 'sesión sin límite de tiempo'
+                                : $usr->sesiones_activas_count.'/'.($usr->max_active_sessions === 0 ? 'Sin límite' : $usr->max_active_sessions).' sesiones · cierre '.($usr->session_idle_timeout_minutes ?: (int) config('session.lifetime', 30)).' min';
                         @endphp
                         <article wire:key="team-mobile-{{ $usr->id }}" class="space-y-3 p-4">
                             <div class="flex items-start justify-between gap-3"><div class="min-w-0"><strong class="block truncate text-sm text-zinc-900 dark:text-zinc-100">{{ $usr->name }}</strong><span class="block truncate text-xs text-zinc-500">{{ $usr->email }}</span></div><x-status-badge :value="$usr->estado" :tone="$usr->estado === 'activo' ? 'emerald' : ($usr->estado === 'suspendido' ? 'amber' : 'slate')" /></div>
-                            <p class="text-xs text-zinc-500">{{ $usr->username }} · {{ $usr->dni ?: 'Sin DNI' }} · {{ $membership?->pivot?->es_administrador ? 'Administrador' : 'Acceso estándar' }} · {{ $usr->sesiones_activas_count }}/{{ $usr->max_active_sessions === 0 ? 'Sin límite' : $usr->max_active_sessions }} sesiones · cierre {{ $usr->session_idle_timeout_minutes }} min</p>
+                            <p class="text-xs text-zinc-500">{{ $usr->username }} · {{ $usr->dni ?: 'Sin DNI' }} · {{ $membership?->pivot?->es_administrador ? 'Administrador' : 'Acceso estándar' }} · {{ $sessionInfo }}</p>
                             <div class="flex flex-wrap gap-1">@forelse($usr->roles as $role)<span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-bold dark:border-zinc-700 dark:bg-zinc-800">{{ $role->nombre }}</span>@empty<span class="text-xs text-zinc-500">Sin roles</span>@endforelse</div>
                             <div class="flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
                                 @if(auth()->user()->tienePermiso('ajustes', 'actualizar'))
@@ -191,7 +199,7 @@
 
     @if($activeTab === 'general')
         <section class="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.65fr)]">
-            <form wire:submit="saveBranding" x-on:submit="if ($store.imageUploads.busy) $event.preventDefault()" class="agro-card overflow-hidden"
+            <form wire:submit="saveBranding" x-on:submit="if ($store?.imageUploads?.busy) $event.preventDefault()" class="agro-card overflow-hidden"
                   x-data="{
                       previewName: $wire.entangle('brandName'),
                       previewTagline: $wire.entangle('brandTagline'),
@@ -232,34 +240,44 @@
                         $brandingLogoFrame = \App\Support\ImageFrame::normalize($brandLogoFrame);
                     @endphp
                     <div class="space-y-3" x-data="optimizedImageUpload('brandLogo', 512, 262144)">
-                        <div class="relative flex aspect-square items-center justify-center overflow-hidden rounded-3xl border border-dashed border-emerald-300 bg-emerald-50 p-5 dark:border-emerald-400/25 dark:bg-emerald-950/30" x-bind:aria-busy="busy">
+                        <label for="branding-logo-input" class="group relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-zinc-300 bg-zinc-50 p-5 transition hover:border-emerald-500/60 dark:border-zinc-700 dark:bg-zinc-950" x-bind:aria-busy="busy">
                             <template x-if="previewUrl">
                                 <img :src="previewUrl" alt="Vista previa inmediata del logo" class="absolute inset-0 h-full w-full object-contain">
                             </template>
-                            <div x-show="!previewUrl" class="h-full w-full">
+                            <span x-show="!previewUrl" class="absolute inset-0 h-full w-full">
                                 @if($brandLogo)
                                     <img src="{{ $brandLogo->temporaryUrl() }}" alt="Vista previa" class="h-full w-full object-cover" style="object-position: {{ $brandingLogoFrame['x'] }}% {{ $brandingLogoFrame['y'] }}%; transform: scale({{ $brandingLogoFrame['zoom'] }}); transform-origin: {{ $brandingLogoFrame['x'] }}% {{ $brandingLogoFrame['y'] }}%;">
+                                    <span class="absolute inset-x-0 bottom-0 px-3 py-2.5 bg-zinc-950/85 text-center text-xs font-semibold text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity">Cambiar logo</span>
                                 @elseif($branding->logoUrl())
                                     <img src="{{ $branding->logoUrl() }}" alt="Logo actual" class="h-full w-full object-cover" style="object-position: {{ $brandingLogoFrame['x'] }}% {{ $brandingLogoFrame['y'] }}%; transform: scale({{ $brandingLogoFrame['zoom'] }}); transform-origin: {{ $brandingLogoFrame['x'] }}% {{ $brandingLogoFrame['y'] }}%;">
+                                    <span class="absolute inset-x-0 bottom-0 px-3 py-2.5 bg-zinc-950/85 text-center text-xs font-semibold text-zinc-200 opacity-0 group-hover:opacity-100 transition-opacity">Cambiar logo</span>
                                 @else
-                                    <span class="flex h-full w-full items-center justify-center"><x-brand-logo class="h-24 w-24 text-emerald-700 dark:text-emerald-300" /></span>
+                                    <span class="flex h-full w-full items-center justify-center"><x-brand-logo class="h-24 w-24 text-emerald-600 dark:text-emerald-400" /></span>
                                 @endif
-                            </div>
+                            </span>
                             @if($brandLogo)
-                                <x-image-frame-editor id="branding-logo-frame" :src="$brandLogo->temporaryUrl()" x-model="brandLogoFrame.x" y-model="brandLogoFrame.y" zoom-model="brandLogoFrame.zoom" />
+                                <x-image-frame-editor id="branding-logo-frame" :src="$brandLogo->temporaryUrl()" x-model="brandLogoFrame.x" y-model="brandLogoFrame.y" zoom-model="brandLogoFrame.zoom" mode="full" />
                             @elseif($branding->logoUrl())
-                                <x-image-frame-editor id="branding-logo-frame" :src="$branding->logoUrl()" x-model="brandLogoFrame.x" y-model="brandLogoFrame.y" zoom-model="brandLogoFrame.zoom" />
+                                <x-image-frame-editor id="branding-logo-frame" :src="$branding->logoUrl()" x-model="brandLogoFrame.x" y-model="brandLogoFrame.y" zoom-model="brandLogoFrame.zoom" mode="full" />
                             @endif
-                            <div x-cloak x-show="busy" class="absolute inset-x-3 bottom-3 z-30 rounded-xl bg-zinc-950/90 p-3 shadow-lg" role="status" aria-live="polite">
-                                <div class="flex items-center justify-between text-[11px] font-semibold text-emerald-300"><span x-text="processing ? 'Optimizando logo...' : 'Subiendo logo...'"></span><span x-show="uploading" x-text="`${progress}%`"></span></div>
-                                <progress max="100" x-bind:value="processing ? null : progress" class="mt-2 block h-1 w-full overflow-hidden rounded-full"></progress>
-                            </div>
-                        </div>
+                            <span x-cloak x-show="busy" class="absolute inset-x-0 bottom-0 z-30 p-3 bg-zinc-950/90" role="status" aria-live="polite">
+                                <span class="flex items-center justify-between text-[11px] font-semibold text-emerald-400"><span x-text="processing ? 'Optimizando logo...' : 'Subiendo logo...'"></span><span x-show="uploading" x-text="`${progress}%`"></span></span>
+                                <span class="mt-2 block h-1 w-full overflow-hidden rounded-full bg-zinc-800">
+                                    <span class="block h-full bg-emerald-400 transition-all duration-200" :style="`width: ${processing ? 18 : progress}%`"></span>
+                                </span>
+                            </span>
+                        </label>
                         <x-image-source-actions input-id="branding-logo-input" gallery-label="Seleccionar logo" />
-                        @if($brandLogo)<button type="button" wire:click="cancelBrandLogoChange" x-on:click="releasePreview()" x-bind:disabled="busy" class="w-full text-xs font-bold text-zinc-600 dark:text-zinc-300">Descartar logo nuevo</button>@endif
+                        @if($brandLogo)<button type="button" wire:click="cancelBrandLogoChange" x-on:click="releasePreview()" x-bind:disabled="busy" class="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-bold text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700">Descartar logo nuevo</button>@endif
                         <p class="text-center text-[11px] leading-5 text-zinc-500">JPG, PNG o WebP. Vista previa directa, WebP ≤512 px y 256 KB. Ajusta encuadre antes de guardar.</p>
                         <span x-cloak x-show="clientError" x-text="clientError" class="block text-xs text-rose-500" role="alert"></span>
-                        @if($brandLogoPath)<button type="button" wire:click="removeBrandLogo" wire:confirm="¿Usar nuevamente el icono predeterminado?" class="w-full text-xs font-bold text-rose-600">Quitar logo actual</button>@endif
+                        @if($brandLogoPath)
+                            <button type="button"
+                                    x-on:click.prevent="confirmDelete('¿Quitar logo actual?', 'Se restaurará la plántula predeterminada del sistema.').then((res) => { if (res.isConfirmed) $wire.removeBrandLogo() })"
+                                    class="w-full text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400">
+                                Quitar logo actual
+                            </button>
+                        @endif
                         @error('brandLogo')<p class="text-xs text-rose-500">{{ $message }}</p>@enderror
                     </div>
                     <div class="space-y-5">
@@ -289,10 +307,10 @@
                             @error('brandCustomColor')<p class="mt-2 text-xs text-rose-500">{{ $message }}</p>@enderror
                             <p class="mt-2 text-[11px] text-zinc-500">La vista cambia al instante. Guarda para aplicarlo en todo el sistema, Gestión web y Auditoría.</p>
                         </div>
-                        <div class="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-700"><p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Vista previa</p><div class="mt-3 flex items-center gap-3"><span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white"><x-brand-logo class="h-6 w-6" /></span><span><strong class="block" x-text="previewName || 'Nombre del sistema'"></strong><small class="text-zinc-500" x-text="previewTagline || 'Lema del sistema'"></small></span></div></div>
+                        <div class="rounded-2xl border border-zinc-200 p-4 dark:border-zinc-700"><p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Vista previa</p><div class="mt-3 flex items-center gap-3"><span class="flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-emerald-600 dark:border-emerald-500 bg-zinc-950/10 shadow-sm overflow-hidden shrink-0"><x-brand-logo class="h-full w-full" /></span><span><strong class="block" x-text="previewName || 'Nombre del sistema'"></strong><small class="text-zinc-500" x-text="previewTagline || 'Lema del sistema'"></small></span></div></div>
                     </div>
                 </div>
-                @if(auth()->user()->tienePermiso('ajustes', 'actualizar'))<div class="flex justify-end border-t border-zinc-200 p-4 dark:border-zinc-800 sm:px-6"><button type="submit" x-bind:disabled="$store.imageUploads.busy" wire:loading.attr="disabled" wire:target="saveBranding,brandLogo" class="agro-button w-full sm:w-auto">Guardar identidad</button></div>@endif
+                @if(auth()->user()->tienePermiso('ajustes', 'actualizar'))<div class="flex justify-end border-t border-zinc-200 p-4 dark:border-zinc-800 sm:px-6"><button type="submit" x-bind:disabled="$store?.imageUploads?.busy" wire:loading.attr="disabled" wire:target="saveBranding,brandLogo" class="agro-button w-full sm:w-auto">Guardar identidad</button></div>@endif
             </form>
 
             <form wire:submit="saveSettings" class="agro-card h-fit p-4 sm:p-6">
@@ -301,6 +319,10 @@
                 @if(auth()->user()->tienePermiso('ajustes', 'actualizar'))<button type="submit" class="agro-button mt-6 w-full">Guardar preferencias</button>@endif
             </form>
         </section>
+    @endif
+
+    @if($activeTab === 'pdf')
+        @include('livewire.ajustes.pdf')
     @endif
 
     @if($activeTab === 'backup')
@@ -330,6 +352,10 @@
     @endif
 
         @endif
+
+    @if($activeTab === 'peligro')
+        @include('livewire.ajustes.danger-zone')
+    @endif
 
     @if($showRoleModal)
         <div x-data x-init="document.body.classList.add('overflow-hidden'); return () => document.body.classList.remove('overflow-hidden')" class="agro-dialog-overlay">

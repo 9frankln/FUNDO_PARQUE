@@ -64,6 +64,7 @@ class EngordeIndexReportTest extends TestCase
             ->set('estado', 'activo')
             ->call('exportar', ['codigo', 'estado'])
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
 
         Livewire::test(Index::class)

@@ -50,7 +50,7 @@ new class extends Component
             actor: $user,
         );
 
-        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+        $this->redirectIntended(default: route('dashboard', absolute: false));
     }
 
     public function unlockSessions(): void
@@ -82,7 +82,7 @@ new class extends Component
         );
 
         $this->sessionLimitReached = false;
-        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+        $this->redirectIntended(default: route('dashboard', absolute: false));
     }
 }; ?>
 
@@ -99,7 +99,7 @@ new class extends Component
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                 </svg>
                 <input wire:model="form.email" id="modal-email" type="text" required autocomplete="username"
-                       class="w-full rounded-2xl border @error('form.email') border-red-500/80 bg-red-500/5 focus:border-red-500 focus:ring-red-500/20 @else border-emerald-900/10 bg-emerald-50/70 focus:border-emerald-500 focus:ring-emerald-500/10 dark:border-emerald-200/10 dark:bg-emerald-950/50 @enderror py-3.5 pl-12 pr-4 text-sm text-emerald-950 outline-none transition placeholder:text-emerald-700/60 dark:placeholder:text-emerald-300/70 focus:ring-4 dark:text-emerald-50"
+                       class="w-full rounded-2xl border @error('form.email') border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20 @else border-emerald-300 bg-white focus:border-emerald-500 focus:ring-emerald-500/15 dark:border-emerald-200/10 dark:bg-emerald-950/50 @enderror py-3.5 pl-12 pr-4 text-sm text-emerald-950 outline-none transition placeholder:text-emerald-600/50 dark:placeholder:text-emerald-300/70 focus:ring-1 dark:text-emerald-50 shadow-sm"
                        placeholder="admin o nombre@correo.com">
             </div>
             @error('form.email')
@@ -129,7 +129,7 @@ new class extends Component
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
                 <input wire:model="form.password" id="modal-password" :type="showPassword ? 'text' : 'password'" required autocomplete="current-password"
-                       class="w-full rounded-2xl border @error('form.password') border-red-500/80 bg-red-500/5 focus:border-red-500 focus:ring-red-500/20 @else border-emerald-900/10 bg-emerald-50/70 focus:border-emerald-500 focus:ring-emerald-500/10 dark:border-emerald-200/10 dark:bg-emerald-950/50 @enderror py-3.5 pl-12 pr-11 text-sm text-emerald-950 outline-none transition placeholder:text-emerald-700/60 dark:placeholder:text-emerald-300/70 focus:ring-4 dark:text-emerald-50"
+                       class="w-full rounded-2xl border @error('form.password') border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20 @else border-emerald-300 bg-white focus:border-emerald-500 focus:ring-emerald-500/15 dark:border-emerald-200/10 dark:bg-emerald-950/50 @enderror py-3.5 pl-12 pr-11 text-sm text-emerald-950 outline-none transition placeholder:text-emerald-600/50 dark:placeholder:text-emerald-300/70 focus:ring-1 dark:text-emerald-50 shadow-sm"
                        placeholder="Tu contraseña">
                 <button type="button" @click="showPassword = !showPassword" aria-label="Mostrar u ocultar contraseña"
                         class="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-emerald-700/60 hover:bg-emerald-100/50 hover:text-emerald-900 dark:text-emerald-300/60 dark:hover:bg-emerald-900/50 dark:hover:text-emerald-100 transition">
@@ -151,11 +151,6 @@ new class extends Component
                 </div>
             @enderror
         </div>
-
-        <label for="modal-remember" class="flex cursor-pointer items-center gap-3 text-sm text-emerald-900/65 dark:text-emerald-100/65">
-            <input wire:model="form.remember" id="modal-remember" type="checkbox" class="agro-checkbox h-4 w-4 rounded border focus:ring-0">
-            Mantener mi sesión iniciada
-        </label>
 
         <button type="submit" wire:loading.attr="disabled" wire:target="login"
                 class="agro-button w-full !min-h-12 !py-3.5 text-sm font-extrabold shadow-xl disabled:cursor-wait">

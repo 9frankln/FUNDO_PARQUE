@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -111,61 +112,83 @@ class Buscador extends Component
         $term = '%'.$search.'%';
         $normalizedTerm = '%'.str_replace([' ', '-'], '_', Str::lower($search)).'%';
         $dateTerm = $this->normalizedDateTerm($search);
-        $results = collect();
+        $numericTerm = $this->numericTerm($search);
+        $cleanSearch = trim($search);
 
-        if ($this->shouldSearch('animal')) {
-            $results = $results->merge($this->searchAnimals($fundoId, $term, $normalizedTerm, $dateTerm));
-        }
-        if ($this->shouldSearch('engorde')) {
-            $results = $results->merge($this->searchFatteningLots($fundoId, $term, $normalizedTerm, $dateTerm));
-        }
-        if ($this->shouldSearch('leche')) {
-            $results = $results->merge($this->searchMilkRecords($fundoId, $term, $normalizedTerm, $dateTerm));
-        }
-        if ($this->shouldSearch('queso')) {
-            $results = $results->merge($this->searchCheeseProduction($fundoId, $term, $dateTerm));
-        }
-        if ($this->shouldSearch('finanzas')) {
-            $results = $results->merge($this->searchFinancialMovements($fundoId, $term, $normalizedTerm, $dateTerm));
-        }
-        if ($this->shouldSearch('monitoreo')) {
-            $results = $results->merge($this->searchHealthRecords($fundoId, $term, $normalizedTerm, $dateTerm));
-        }
-        if ($this->shouldSearch('auditoria')) {
-            $results = $results->merge($this->searchAuditLog($fundoId, $term, $normalizedTerm));
-        }
+        /*
+         * OPTIMIZACIÓN DE RENDIMIENTO:
+         * Los resultados se cachean 60 segundos por fundo + categoría + término.
+         * Evita repetir hasta 7 consultas LIKE cuando se navega entre categorías
+         * con el mismo término o se reescribe una búsqueda reciente.
+         */
+        $cacheKey = 'buscador.v1.'.$fundoId.'.'.$this->categoria.'.'.md5(implode('|', [
+            strtolower($search),
+            implode(',', array_keys($this->availableCategories)),
+        ]));
 
-        $sorted = $results
-            ->sortByDesc('created_at')
-            ->take(60)
-            ->values();
+        $cached = Cache::remember($cacheKey, now()->addSeconds(60), function () use ($fundoId, $term, $normalizedTerm, $dateTerm, $numericTerm, $cleanSearch): array {
+            $results = collect();
 
-        $this->resultados = $sorted->all();
-        $this->resultCounts = $sorted
-            ->countBy('type')
-            ->map(fn (int $count) => $count)
-            ->all();
+            if ($this->shouldSearch('animal')) {
+                $results = $results->merge($this->searchAnimals($fundoId, $term, $normalizedTerm, $dateTerm, $cleanSearch));
+            }
+            if ($this->shouldSearch('engorde')) {
+                $results = $results->merge($this->searchFatteningLots($fundoId, $term, $normalizedTerm, $dateTerm));
+            }
+            if ($this->shouldSearch('leche')) {
+                $results = $results->merge($this->searchMilkRecords($fundoId, $term, $normalizedTerm, $dateTerm, $numericTerm));
+            }
+            if ($this->shouldSearch('queso')) {
+                $results = $results->merge($this->searchCheeseProduction($fundoId, $term, $dateTerm, $numericTerm));
+            }
+            if ($this->shouldSearch('finanzas')) {
+                $results = $results->merge($this->searchFinancialMovements($fundoId, $term, $normalizedTerm, $dateTerm, $numericTerm, $cleanSearch));
+            }
+            if ($this->shouldSearch('monitoreo')) {
+                $results = $results->merge($this->searchHealthRecords($fundoId, $term, $normalizedTerm, $dateTerm));
+            }
+            if ($this->shouldSearch('auditoria')) {
+                $results = $results->merge($this->searchAuditLog($fundoId, $term, $normalizedTerm));
+            }
+
+            $sorted = $results
+                ->sortByDesc('created_at')
+                ->take(60)
+                ->values();
+
+            return [
+                'resultados' => $sorted->all(),
+                'resultCounts' => $sorted
+                    ->countBy('type')
+                    ->map(fn (int $count) => $count)
+                    ->all(),
+            ];
+        });
+
+        $this->resultados = $cached['resultados'];
+        $this->resultCounts = $cached['resultCounts'];
     }
 
-    private function searchAnimals(int $fundoId, string $term, string $normalizedTerm, ?string $dateTerm): Collection
+    private function searchAnimals(int $fundoId, string $term, string $normalizedTerm, ?string $dateTerm, string $cleanSearch): Collection
     {
         return DB::table('animales')
             ->leftJoin('especies', 'animales.especie_id', '=', 'especies.id')
             ->leftJoin('razas', 'animales.raza_id', '=', 'razas.id')
             ->where('animales.fundo_id', $fundoId)
             ->whereNull('animales.deleted_at')
-            ->where(function ($query) use ($term, $normalizedTerm, $dateTerm) {
-                $query->where('animales.arete', 'like', $term)
-                    ->orWhere('animales.nombre', 'like', $term)
-                    ->orWhere('especies.nombre', 'like', $term)
-                    ->orWhere('razas.nombre', 'like', $term)
-                    ->orWhere('animales.genero', 'like', $normalizedTerm)
-                    ->orWhere('animales.estado_productivo', 'like', $normalizedTerm)
-                    ->orWhere('animales.estado_reproductivo', 'like', $normalizedTerm)
-                    ->orWhere('animales.tipo_alta', 'like', $normalizedTerm)
-                    ->orWhere('animales.observaciones', 'like', $term);
+            ->where(function ($query) use ($term, $normalizedTerm, $dateTerm, $cleanSearch) {
+                $query->where(function ($q) use ($term) {
+                    $q->where('animales.arete', 'like', $term)->orWhere('animales.nombre', 'like', $term);
+                })
+                ->orWhere('especies.nombre', 'like', $term)
+                ->orWhere('razas.nombre', 'like', $term)
+                ->orWhere('animales.genero', 'like', $normalizedTerm)
+                ->orWhere('animales.estado_productivo', 'like', $normalizedTerm)
+                ->orWhere('animales.estado_reproductivo', 'like', $normalizedTerm)
+                ->orWhere('animales.tipo_alta', 'like', $normalizedTerm)
+                ->orWhere('animales.observaciones', 'like', $term);
                 if ($dateTerm) {
-                    $query->orWhere('animales.fecha_alta', 'like', $dateTerm);
+                    $query->orWhere('animales.fecha_alta', $dateTerm);
                 }
             })
             ->select([
@@ -221,19 +244,20 @@ class Buscador extends Component
             ));
     }
 
-    private function searchMilkRecords(int $fundoId, string $term, string $normalizedTerm, ?string $dateTerm): Collection
+    private function searchMilkRecords(int $fundoId, string $term, string $normalizedTerm, ?string $dateTerm, ?float $numericTerm): Collection
     {
         return DB::table('ordenos')
             ->where('fundo_id', $fundoId)
             ->whereNull('deleted_at')
-            ->where(function ($query) use ($term, $normalizedTerm, $dateTerm) {
-                $query->where('fecha', 'like', $term)
-                    ->orWhere('turno', 'like', $normalizedTerm)
+            ->where(function ($query) use ($term, $normalizedTerm, $dateTerm, $numericTerm) {
+                $query->where('turno', 'like', $normalizedTerm)
                     ->orWhere('tipo_registro', 'like', $normalizedTerm)
-                    ->orWhere('litros_total', 'like', $term)
                     ->orWhere('observaciones', 'like', $term);
+                if ($numericTerm !== null) {
+                    $query->orWhere('litros_total', $numericTerm);
+                }
                 if ($dateTerm) {
-                    $query->orWhere('fecha', 'like', $dateTerm);
+                    $query->orWhere('fecha', $dateTerm);
                 }
             })
             ->select(['id', 'fecha', 'turno', 'tipo_registro', 'litros_total', 'cantidad_vacas', 'observaciones', 'created_at'])
@@ -250,18 +274,19 @@ class Buscador extends Component
             ));
     }
 
-    private function searchCheeseProduction(int $fundoId, string $term, ?string $dateTerm): Collection
+    private function searchCheeseProduction(int $fundoId, string $term, ?string $dateTerm, ?float $numericTerm): Collection
     {
         return DB::table('producciones_queso')
             ->where('fundo_id', $fundoId)
             ->whereNull('deleted_at')
-            ->where(function ($query) use ($term, $dateTerm) {
-                $query->where('fecha', 'like', $term)
-                    ->orWhere('unidades', 'like', $term)
-                    ->orWhere('peso_total_kg', 'like', $term)
-                    ->orWhere('observaciones', 'like', $term);
+            ->where(function ($query) use ($term, $dateTerm, $numericTerm) {
+                $query->where('observaciones', 'like', $term);
+                if ($numericTerm !== null) {
+                    $query->orWhere('unidades', $numericTerm)
+                          ->orWhere('peso_total_kg', $numericTerm);
+                }
                 if ($dateTerm) {
-                    $query->orWhere('fecha', 'like', $dateTerm);
+                    $query->orWhere('fecha', $dateTerm);
                 }
             })
             ->select(['id', 'fecha', 'unidades', 'peso_total_kg', 'observaciones', 'created_at'])
@@ -278,20 +303,21 @@ class Buscador extends Component
             ));
     }
 
-    private function searchFinancialMovements(int $fundoId, string $term, string $normalizedTerm, ?string $dateTerm): Collection
+    private function searchFinancialMovements(int $fundoId, string $term, string $normalizedTerm, ?string $dateTerm, ?float $numericTerm, string $cleanSearch): Collection
     {
         return DB::table('movimientos')
             ->leftJoin('categorias_financieras', 'movimientos.categoria_id', '=', 'categorias_financieras.id')
             ->where('movimientos.fundo_id', $fundoId)
             ->whereNull('movimientos.deleted_at')
-            ->where(function ($query) use ($term, $normalizedTerm, $dateTerm) {
+            ->where(function ($query) use ($term, $normalizedTerm, $dateTerm, $numericTerm, $cleanSearch) {
                 $query->where('movimientos.descripcion', 'like', $term)
-                    ->orWhere('movimientos.fecha', 'like', $term)
-                    ->orWhere('movimientos.monto', 'like', $term)
-                    ->orWhere('movimientos.tipo', 'like', $normalizedTerm)
-                    ->orWhere('categorias_financieras.nombre', 'like', $term);
+                ->orWhere('movimientos.tipo', 'like', $normalizedTerm)
+                ->orWhere('categorias_financieras.nombre', 'like', $term);
+                if ($numericTerm !== null) {
+                    $query->orWhere('movimientos.monto', $numericTerm);
+                }
                 if ($dateTerm) {
-                    $query->orWhere('movimientos.fecha', 'like', $dateTerm);
+                    $query->orWhere('movimientos.fecha', $dateTerm);
                 }
             })
             ->select([
@@ -433,7 +459,7 @@ class Buscador extends Component
             try {
                 $date = CarbonImmutable::createFromFormat('!'.$format, $search);
                 if ($date && $date->format($format) === $search) {
-                    return '%'.$date->format('Y-m-d').'%';
+                    return $date->format('Y-m-d');
                 }
             } catch (\Throwable) {
                 // Continue with the next accepted presentation.
@@ -441,6 +467,11 @@ class Buscador extends Component
         }
 
         return null;
+    }
+
+    private function numericTerm(string $search): ?float
+    {
+        return is_numeric($search) ? (float) $search : null;
     }
 
     private function dateLabel(mixed $date): string

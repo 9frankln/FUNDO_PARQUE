@@ -9,9 +9,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $user) {
+            if (! array_key_exists('email_verified_at', $user->getAttributes())) {
+                $user->email_verified_at = now();
+            }
+        });
+    }
 
     protected $fillable = [
         'dni', 'name', 'username', 'email', 'password', 'estado', 'max_active_sessions', 'session_idle_timeout_minutes',
@@ -73,7 +82,9 @@ class User extends Authenticatable implements MustVerifyEmail
             return true;
         }
 
-        return $this->roles
+        return $this->roles()
+            ->with('permisos')
+            ->get()
             ->filter(fn ($role) => $role->fundo_id === null || $role->fundo_id === (int) $fundoId)
             ->contains(fn ($role) => $role->permisos->contains(
                 fn ($permiso) => $permiso->modulo === $modulo && $permiso->accion === $accion
@@ -99,6 +110,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->fundos
             ->where('activo', true)
             ->firstWhere('id', (int) $fundoId);
+    }
+
+    public function esAdministrador(): bool
+    {
+        $this->loadMissing(['fundos', 'roles']);
+
+        if ($this->fundos->contains(fn ($fundo) => (bool) ($fundo->pivot->es_administrador ?? false))) {
+            return true;
+        }
+
+        return $this->roles->contains(fn ($role) => strtolower($role->nombre ?? '') === 'administrador');
     }
 
     public function requestedDatabaseBackups()

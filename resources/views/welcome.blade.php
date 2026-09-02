@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" 
+      class="scroll-smooth"
+      x-data="{ 
+          darkMode: window.getTheme ? (window.getTheme() === 'dark') : document.documentElement.classList.contains('dark') 
+      }" 
+      x-init="$watch('darkMode', val => window.setTheme(val ? 'dark' : 'light'))">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,12 +18,8 @@
     @vite('resources/css/app.css')
     @livewireStyles
     <x-brand-theme />
-    <script>
-        (() => {
-            const saved = localStorage.getItem('theme');
-            document.documentElement.classList.toggle('dark', saved ? saved === 'dark' : true);
-        })();
-    </script>
+    <x-theme-init />
+
 
     <style>
         .landing-page {
@@ -30,6 +31,9 @@
             --landing-line: rgba(17, 54, 37, .13);
             --landing-accent: rgb(var(--brand-600));
             --landing-accent-soft: rgb(var(--brand-100));
+            --landing-accent-warm: #a63d1f;
+            --landing-accent-warm-strong: #8a3017;
+            --landing-accent-warm-soft: #fbe8dc;
             min-width: 320px;
             overflow-x: hidden;
             color: var(--landing-ink);
@@ -47,6 +51,9 @@
             --landing-line: rgba(167, 243, 208, .13);
             --landing-accent: rgb(var(--brand-400));
             --landing-accent-soft: rgb(var(--brand-400) / .12);
+            --landing-accent-warm: #e8a081;
+            --landing-accent-warm-strong: #f6c8b0;
+            --landing-accent-warm-soft: rgba(214, 108, 62, 0.16);
             background:
                 radial-gradient(circle at 86% 8%, rgb(var(--brand-500) / .13), transparent 30rem),
                 radial-gradient(circle at 5% 46%, rgb(var(--brand-700) / .13), transparent 26rem),
@@ -57,8 +64,8 @@
         .landing-header.is-scrolled, .landing-header:focus-within { border-color: var(--landing-line); background: color-mix(in srgb, var(--landing-bg) 88%, transparent); box-shadow: 0 14px 40px rgba(1, 12, 7, .11); backdrop-filter: blur(18px); }
         .landing-navbar { display: flex; min-height: 5.25rem; align-items: center; gap: 1rem; }
         .landing-brand { display: inline-flex; min-width: 0; align-items: center; gap: .8rem; text-decoration: none; }
-        .landing-brand-mark { display: grid; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; place-items: center; border-radius: 1rem; color: #fff; background: linear-gradient(145deg, rgb(var(--brand-500)), rgb(var(--brand-700))); box-shadow: 0 10px 24px rgb(var(--brand-700) / .28); }
-        .landing-brand-mark svg, .landing-brand-mark img { width: 1.45rem; height: 1.45rem; }
+        .landing-brand-mark { display: flex; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; items-center: center; justify-content: center; overflow: hidden; border-radius: 9999px; border: 2px solid color-mix(in srgb, var(--landing-accent) 30%, transparent); background: var(--landing-surface-soft); box-shadow: 0 4px 18px rgba(0, 0, 0, .15); }
+        .landing-brand-mark svg, .landing-brand-mark img, .landing-brand-mark .image-frame-editor, .landing-brand-mark > div { width: 100%; height: 100%; object-fit: cover; }
         .landing-brand-copy { min-width: 0; line-height: 1.1; }
         .landing-brand-copy strong { display: block; color: var(--landing-ink); font-size: clamp(1.05rem, 2vw, 1.45rem); font-weight: 900; letter-spacing: -.04em; white-space: nowrap; }
         .landing-brand-copy small { display: block; margin-top: .35rem; color: var(--landing-accent); font-size: .58rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
@@ -67,20 +74,23 @@
         .landing-nav-links a:hover, .landing-nav-links a:focus-visible { color: var(--landing-ink); background: var(--landing-surface-soft); }
         .landing-nav-links a:last-child { color: var(--landing-accent); background: var(--landing-accent-soft); }
         .landing-nav-actions { display: flex; align-items: center; gap: .55rem; }
-        .landing-icon-button { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border: 1px solid var(--landing-line); border-radius: .85rem; color: var(--landing-muted); background: color-mix(in srgb, var(--landing-surface) 70%, transparent); transition: color .18s, background .18s; }
+        .landing-icon-button { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border: 1px solid var(--landing-line); border-radius: .85rem; color: var(--landing-muted); transition: color .18s, background .18s; }
         .landing-icon-button:hover { color: var(--landing-ink); background: var(--landing-surface-soft); }
         .landing-icon-button svg { width: 1.15rem; height: 1.15rem; }
-        .landing-access { display: inline-flex; min-height: 2.65rem; align-items: center; justify-content: center; border-radius: .9rem; padding: .65rem 1.1rem; color: #fff; background: rgb(var(--brand-600)); box-shadow: 0 10px 25px rgb(var(--brand-700) / .22); font-size: .7rem; font-weight: 900; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; transition: transform .18s, background .18s; }
-        .landing-access:hover { transform: translateY(-1px); background: rgb(var(--brand-700)); }
+        .landing-login-close { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; border-radius: .85rem; border: 1.5px solid rgba(16,185,129,.55); background: linear-gradient(135deg, #064e35, #0d7a51); color: #fff; box-shadow: 0 4px 14px rgba(16,185,129,.25); transition: transform .18s, box-shadow .18s, background .18s; }
+        .landing-login-close:hover { transform: scale(1.08); background: linear-gradient(135deg, #065c3f, #10935f); box-shadow: 0 6px 20px rgba(16,185,129,.38); }
+        .landing-login-close svg { width: 1rem; height: 1rem; stroke-width: 2.5; }
+        .landing-access { display: inline-flex; min-height: 2.65rem; align-items: center; justify-content: center; border-radius: .9rem; padding: .65rem 1.1rem; color: #fff; background: var(--landing-accent-warm); box-shadow: 0 10px 25px rgba(166, 61, 31, .25); font-size: .7rem; font-weight: 900; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; transition: transform .18s, background .18s; }
+        .landing-access:hover { transform: translateY(-1px); background: var(--landing-accent-warm-strong); }
         .landing-mobile-menu { border-top: 1px solid var(--landing-line); background: color-mix(in srgb, var(--landing-bg) 96%, transparent); backdrop-filter: blur(18px); }
         .landing-mobile-menu nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; padding-block: 1rem; }
         .landing-mobile-menu nav a { border: 1px solid var(--landing-line); border-radius: .85rem; padding: .8rem; color: var(--landing-muted); background: var(--landing-surface); font-size: .72rem; font-weight: 800; text-align: center; text-decoration: none; }
         .landing-main { padding-top: 5.25rem; }
         .landing-hero { display: grid; min-height: calc(100svh - 5.25rem); align-items: center; gap: clamp(2rem, 5vw, 5rem); padding-block: clamp(3.5rem, 7vw, 7rem); }
-        .landing-kicker { display: inline-flex; align-items: center; gap: .55rem; margin: 0 0 .9rem; color: var(--landing-accent); font-size: .65rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+        .landing-hero-copy .landing-kicker { display: inline-flex; align-items: center; gap: .55rem; margin: 0 0 .9rem; color: var(--landing-accent-warm); font-size: .65rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
         .landing-kicker::before { width: 1.6rem; height: 1px; content: ""; background: currentColor; }
         .landing-hero-copy h1 { max-width: 44rem; margin: 0; font-size: clamp(2.9rem, 6vw, 6rem); font-weight: 900; letter-spacing: -.065em; line-height: .96; text-wrap: balance; }
-        .landing-hero-fundo { display: block; margin-top: .65rem; color: var(--landing-accent); font-size: clamp(1rem, 2vw, 1.35rem); font-weight: 800; letter-spacing: -.02em; }
+        .landing-hero-fundo { display: block; margin-top: .65rem; color: var(--landing-accent-warm); font-size: clamp(1rem, 2vw, 1.35rem); font-weight: 800; letter-spacing: -.02em; }
         .landing-hero-copy > p { max-width: 40rem; margin: 1.4rem 0 0; color: var(--landing-muted); font-size: clamp(1rem, 1.45vw, 1.18rem); line-height: 1.75; }
         .landing-hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
         .landing-primary, .landing-secondary { display: inline-flex; min-height: 3.15rem; align-items: center; justify-content: center; gap: .55rem; border-radius: 1rem; padding: .75rem 1.2rem; font-size: .78rem; font-weight: 900; text-decoration: none; transition: transform .18s, border-color .18s, background .18s; }
@@ -195,7 +205,51 @@
         .landing-lightbox-nav.is-next { right: 1rem; }
         .landing-lightbox svg { width: 1.25rem; height: 1.25rem; }
         .landing-lightbox-caption { position: absolute; bottom: 1.2rem; right: 5rem; left: 5rem; color: rgba(255,255,255,.75); font-size: .74rem; font-weight: 750; text-align: center; }
-        .landing-login { width: min(100%, 28rem); max-height: calc(100svh - 2rem); overflow-y: auto; border: 1px solid var(--landing-line); border-radius: 1.5rem; padding: clamp(1.25rem, 4vw, 2rem); color: var(--landing-ink); background: var(--landing-surface); box-shadow: 0 35px 90px rgba(0,0,0,.35); }
+        .landing-login { width: min(100%, 28rem); max-height: calc(100svh - 2rem); overflow-y: auto; border: 1px solid rgba(16,185,129,.22); border-radius: 1.5rem; padding: clamp(1.25rem, 4vw, 2rem); color: var(--landing-ink); background: linear-gradient(160deg, #f0faf6 0%, #ffffff 42%, #f7fdfa 100%); box-shadow: 0 8px 48px rgba(16,185,129,.12), 0 32px 80px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.9); }
+        .dark .landing-login { background: linear-gradient(160deg, #071a13 0%, #0b2018 55%, #061610 100%); border-color: rgba(16,185,129,.18); box-shadow: 0 8px 48px rgba(16,185,129,.14), 0 35px 90px rgba(0,0,0,.55); }
+
+        /* Campos del formulario de acceso: colores garantizados por tema
+           (no dependen del purge de Tailwind ni del caché de assets). */
+        .landing-login input {
+            background-color: #ffffff;
+            border-color: rgba(16, 185, 129, .35);
+            color: #022c22;
+            caret-color: #022c22;
+        }
+        .landing-login input::placeholder { color: rgba(4, 120, 87, .5); }
+        .dark .landing-login input {
+            background-color: rgba(4, 47, 46, .5);
+            border-color: rgba(16, 185, 129, .1);
+            color: #ecfdf5;
+            caret-color: #ecfdf5;
+        }
+        .dark .landing-login input::placeholder { color: rgba(110, 231, 183, .55); }
+
+        /* Autofill coherente con cada tema dentro del modal de acceso */
+        .landing-login input:-webkit-autofill,
+        .landing-login input:-webkit-autofill:hover,
+        .landing-login input:-webkit-autofill:focus,
+        .landing-login input:-webkit-autofill:active {
+            -webkit-text-fill-color: #022c22 !important;
+            -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+            box-shadow: 0 0 0 1000px #ffffff inset !important;
+            caret-color: #022c22 !important;
+            transition: background-color 9999s ease-in-out 0s;
+            border-radius: inherit !important;
+            background-clip: padding-box !important;
+        }
+        .dark .landing-login input:-webkit-autofill,
+        .dark .landing-login input:-webkit-autofill:hover,
+        .dark .landing-login input:-webkit-autofill:focus,
+        .dark .landing-login input:-webkit-autofill:active {
+            -webkit-text-fill-color: #ecfdf5 !important;
+            -webkit-box-shadow: 0 0 0 1000px #09090b inset !important;
+            box-shadow: 0 0 0 1000px #09090b inset !important;
+            caret-color: #ecfdf5 !important;
+            transition: background-color 9999s ease-in-out 0s;
+            border-radius: inherit !important;
+            background-clip: padding-box !important;
+        }
         @media (min-width: 1024px) {
             .landing-hero { grid-template-columns: minmax(0, .88fr) minmax(30rem, 1.12fr); }
             .landing-story-grid { grid-template-columns: minmax(0, 1.55fr) minmax(18rem, .65fr); }
@@ -277,11 +331,10 @@
     x-data="{
         loginOpen: {{ request()->boolean('login') ? 'true' : 'false' }},
         mobileNavOpen: false,
-        darkMode: document.documentElement.classList.contains('dark'),
         atTop: true,
         activeLightbox: null,
         openLogin() { this.loginOpen = true; this.mobileNavOpen = false; this.$nextTick(() => document.getElementById('modal-email')?.focus()) },
-        toggleTheme() { this.darkMode = !this.darkMode; document.documentElement.classList.toggle('dark', this.darkMode); localStorage.setItem('theme', this.darkMode ? 'dark' : 'light') },
+        toggleTheme() { this.darkMode = !this.darkMode; },
         closeLightbox() { this.activeLightbox = null },
         stepLightbox(offset) {
             if (!this.activeLightbox?.images?.length) return;
@@ -299,7 +352,7 @@
     <header class="landing-header" :class="!atTop && 'is-scrolled'">
         <div class="landing-container landing-navbar">
             <a href="{{ route('home') }}#inicio" class="landing-brand" aria-label="Ir al inicio de la página">
-                <span class="landing-brand-mark"><x-brand-logo /></span>
+                <span class="landing-brand-mark overflow-hidden"><x-brand-logo class="h-full w-full" /></span>
                 <span class="landing-brand-copy">
                     <strong>{{ $branding->name }}</strong>
                     <small>{{ $branding->tagline ?: $branding->name }}</small>
@@ -315,10 +368,11 @@
             </nav>
 
             <div class="landing-nav-actions">
-                <button type="button" class="landing-icon-button landing-theme" @click="toggleTheme()" aria-label="Cambiar tema">
-                    <svg x-show="!darkMode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-width="1.8" d="M20.5 15.8A8.5 8.5 0 0 1 8.2 3.5 8.5 8.5 0 1 0 20.5 15.8Z"/></svg>
-                    <svg x-cloak x-show="darkMode" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-width="1.8" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4-1.4 1.4M7 17l-1.4 1.4m0-12.8L7 7m10 10 1.4 1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
-                </button>
+                <x-theme-toggle
+                    btn-class="landing-icon-button landing-theme"
+                    action="toggleTheme()"
+                    icon-size="h-5 w-5"
+                />
                 @auth
                     <a href="{{ route('dashboard') }}" class="landing-access">Dashboard</a>
                 @else
@@ -358,14 +412,15 @@
         @if($heroVisible)
         <section class="landing-container landing-hero">
             <div class="landing-hero-copy">
+                <div class="agro-stripe" style="width:4.5rem; margin-bottom:1.15rem;" aria-hidden="true"></div>
                 @php
                     $showOwner = (bool) ($heroSettings['show_owner'] ?? true);
                     $ownerName = trim((string) ($heroSettings['owner_name'] ?? 'Familia Choquenaira'));
                 @endphp
 
                 @if($showOwner && filled($ownerName))
-                <div style="display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .9rem; border: 1px solid rgb(var(--brand-400) / .3); border-radius: 999px; margin-bottom: .8rem; color: var(--landing-ink); background: color-mix(in srgb, var(--brand-500) 12%, transparent); font-size: .75rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 4px 12px rgba(0,0,0,.05);">
-                    <svg style="width: .9rem; height: .9rem; color: rgb(var(--brand-700));" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0v-5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5m-4 0h4"/></svg>
+                <div style="display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .9rem; border: 1px solid color-mix(in srgb, var(--landing-accent-warm) 35%, transparent); border-radius: 999px; margin-bottom: .8rem; color: var(--landing-ink); background: var(--landing-accent-warm-soft); font-size: .75rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 4px 12px rgba(0,0,0,.05);">
+                    <svg style="width: .9rem; height: .9rem; color: var(--landing-accent-warm);" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0v-5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v5m-4 0h4"/></svg>
                     <span>{{ $ownerName }}</span>
                 </div>
                 @endif
@@ -407,7 +462,7 @@
                         <img class="landing-framed-image" :src="slides[active].full" :alt="slides[active].caption" :style="`--media-focus-x: ${slides[active].focus_x}%; --media-focus-y: ${slides[active].focus_y}%; --media-zoom: ${slides[active].zoom};`" fetchpriority="high" decoding="async">
                         <span class="landing-visual-overlay"></span>
                         <div class="landing-visual-thumbs" x-show="slides.length > 1">
-                            <template x-for="(slide, index) in slides" :key="slide.id"><button type="button" @click="active = index" :class="active === index && 'is-active'" :aria-label="`Ver imagen ${index + 1}`"><img class="landing-framed-image" :src="slide.thumb" :style="`--media-focus-x: ${slide.focus_x}%; --media-focus-y: ${slide.focus_y}%; --media-zoom: ${slide.zoom};`" alt=""></button></template>
+                            <template x-for="(slide, index) in slides" :key="slide.id"><button type="button" @click="active = index" :class="active === index && 'is-active'" :aria-label="`Ver imagen ${index + 1}`"><img class="landing-framed-image" :src="slide.thumb" :style="`--media-focus-x: ${slide.focus_x}%; --media-focus-y: ${slide.focus_y}%; --media-zoom: ${slide.zoom};`" loading="lazy" decoding="async" alt=""></button></template>
                         </div>
                         <div class="landing-visual-info">
                             <span><small x-text="slides[active].category_label"></small><strong x-text="slides[active].caption"></strong></span>
@@ -508,7 +563,49 @@
     @guest
         <div x-cloak x-show="loginOpen" class="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="login-title" @click.self="loginOpen = false">
             <section x-show="loginOpen" x-transition class="landing-login">
-                <div class="mb-6 flex items-start justify-between gap-4"><div><p class="landing-kicker">Área privada</p><h2 id="login-title" class="m-0 text-2xl font-black tracking-tight">Acceso al sistema</h2><p class="mt-2 text-sm text-zinc-500">Ingresa credenciales autorizadas.</p></div><button type="button" class="landing-icon-button" @click="loginOpen = false" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-width="2" d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+                {{-- Header del modal: diseño premium simétrico --}}
+                <div class="relative mb-8 text-center">
+                    {{-- Botón cerrar: posición absoluta arriba-derecha, no rompe el centrado --}}
+                    <button type="button"
+                            class="landing-login-close absolute -right-1 -top-1 z-10"
+                            @click="loginOpen = false"
+                            aria-label="Cerrar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-width="2" d="m6 6 12 12M18 6 6 18"/>
+                        </svg>
+                    </button>
+
+                    {{-- Logo centrado con anillo animado --}}
+                    <div class="relative inline-flex items-center justify-center mb-5">
+                        {{-- Anillo exterior pulsante --}}
+                        <span class="absolute inset-0 rounded-full animate-ping"
+                              style="background: radial-gradient(circle, rgba(16,185,129,.18) 0%, transparent 70%); animation-duration: 2.8s;"></span>
+                        {{-- Anillo decorativo --}}
+                        <span class="absolute -inset-2 rounded-full border border-emerald-500/20 dark:border-emerald-400/15"></span>
+                        <span class="absolute -inset-4 rounded-full border border-emerald-500/10 dark:border-emerald-400/8"></span>
+
+                        {{-- Logo unificado con encuadre perfecto --}}
+                        <x-brand-logo class="h-20 w-20 rounded-full bg-gradient-to-b from-zinc-900/90 to-zinc-950/95 dark:from-zinc-800/80 dark:to-zinc-900/90 shadow-[0_0_40px_rgba(16,185,129,.25),0_8px_32px_rgba(0,0,0,.5)] ring-2 ring-emerald-500/30 ring-offset-2 ring-offset-transparent text-emerald-300" />
+                    </div>
+
+                    {{-- Nombre del predio --}}
+                    <h2 id="login-title"
+                        class="m-0 text-lg font-black leading-tight tracking-wide"
+                        style="letter-spacing: .04em;">
+                        {{ $publicFundoName }}
+                    </h2>
+
+                    {{-- Separador decorativo --}}
+                    <div class="mx-auto mt-3 mb-0 flex items-center gap-3" style="width: fit-content; min-width: 12rem;">
+                        <span class="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-500/40"></span>
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500/60"></span>
+                        <span class="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-600/70 dark:text-emerald-400/60">
+                            Acceso privado
+                        </span>
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500/60"></span>
+                        <span class="h-px flex-1 bg-gradient-to-l from-transparent to-emerald-500/40"></span>
+                    </div>
+                </div>
                 <livewire:welcome.login-modal />
             </section>
         </div>

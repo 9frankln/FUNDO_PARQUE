@@ -225,10 +225,14 @@ class LoteForm extends Component
             Storage::disk('public')->delete($previousPhoto);
         }
 
-        session()->flash('success', $wasEdit ? 'Lote actualizado correctamente.' : 'Lote creado correctamente.');
+        session()->flash('swal', [
+            'icon' => 'success',
+            'title' => $wasEdit ? '¡Actualizado!' : '¡Registrado!',
+            'text' => $wasEdit ? 'Lote actualizado correctamente.' : 'Lote creado correctamente.',
+        ]);
         $this->publishRecentRecord('engorde.lotes', $lote);
 
-        return redirect()->route('engorde.index');
+        return $this->redirectRoute('engorde.index', navigate: true);
     }
 
     public function render()

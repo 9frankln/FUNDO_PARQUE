@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\DatabaseBackupDownloadController;
+use App\Http\Controllers\PdfPreviewController;
 use App\Http\Controllers\PublicLandingController;
+use App\Http\Controllers\SecureFileController;
 use App\Livewire\Admin\LandingManager;
 use App\Livewire\Animal\Form;
 use App\Livewire\Animal\Index;
@@ -10,25 +12,18 @@ use App\Livewire\Auditoria\Index as AuditoriaIndex;
 use App\Livewire\Buscador;
 use App\Livewire\Dashboard;
 use App\Livewire\Engorde\LoteForm;
-use App\Livewire\Finanzas\AsignacionForm;
-use App\Livewire\Finanzas\AsignacionShow;
 use App\Livewire\Finanzas\MovimientoForm;
 use App\Livewire\Finanzas\MovimientoShow;
 use App\Livewire\Monitoreo\PartoForm;
-use App\Livewire\Monitoreo\ProfilaxisForm;
 use App\Livewire\Monitoreo\SanidadForm;
-use App\Models\AsignacionFamiliar;
 use App\Models\Fundo;
-use App\Models\Movimiento;
-use App\Models\RegistroFoto;
 use App\Services\AuditLogger;
 use App\Services\Security\UserSessionService;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
 
 Route::get('/', PublicLandingController::class)->name('home');
 
-Route::middleware(['auth', 'verified', 'fundo', 'actividad'])->group(function () {
+Route::middleware(['auth', 'fundo', 'actividad'])->group(function () {
     Route::get('dashboard', Dashboard::class)->name('dashboard');
     Route::view('profile', 'profile')->name('profile');
 
@@ -67,51 +62,35 @@ Route::middleware(['auth', 'verified', 'fundo', 'actividad'])->group(function ()
     Route::get('finanzas/movimiento/nuevo', MovimientoForm::class)->middleware('permiso:finanzas.crear')->name('finanzas.movimiento.create');
     Route::get('finanzas/movimiento/editar/{id}', MovimientoForm::class)->middleware('permiso:finanzas.actualizar')->name('finanzas.movimiento.edit');
     Route::get('finanzas/movimiento/{id}', MovimientoShow::class)->middleware('permiso:finanzas.leer')->name('finanzas.movimiento.show');
-    Route::get('finanzas/asignacion/nueva', AsignacionForm::class)->middleware('permiso:finanzas.crear')->name('finanzas.asignacion.create');
-    Route::get('finanzas/asignacion/editar/{id}', AsignacionForm::class)->middleware('permiso:finanzas.actualizar')->name('finanzas.asignacion.edit');
-    Route::get('finanzas/asignacion/{id}', AsignacionShow::class)->middleware('permiso:finanzas.leer')->name('finanzas.asignacion.show');
+    Route::get('finanzas/asignacion/nueva', fn () => redirect()->route('finanzas.movimiento.create'))->middleware('permiso:finanzas.crear')->name('finanzas.asignacion.create');
 
     // Monitoreo routes
     Route::get('monitoreo', App\Livewire\Monitoreo\Index::class)->middleware('permiso:monitoreo.leer')->name('monitoreo.index');
     Route::get('monitoreo/sanidad/nueva', SanidadForm::class)->middleware('permiso:monitoreo.crear')->name('monitoreo.sanidad.create');
     Route::get('monitoreo/sanidad/editar/{id}', SanidadForm::class)->middleware('permiso:monitoreo.actualizar')->name('monitoreo.sanidad.edit');
-    Route::get('monitoreo/profilaxis/nueva', ProfilaxisForm::class)->middleware('permiso:monitoreo.crear')->name('monitoreo.profilaxis.create');
-    Route::get('monitoreo/profilaxis/editar/{id}', ProfilaxisForm::class)->middleware('permiso:monitoreo.actualizar')->name('monitoreo.profilaxis.edit');
     Route::get('monitoreo/parto/nuevo', PartoForm::class)->middleware('permiso:monitoreo.crear')->name('monitoreo.parto.create');
     Route::get('monitoreo/parto/editar/{id}', PartoForm::class)->middleware('permiso:monitoreo.actualizar')->name('monitoreo.parto.edit');
-    Route::get('archivos/fotos-registro/{foto}', function (RegistroFoto $foto) {
-        $record = $foto->fotografiable;
-        abort_unless($record && (int) $record->fundo_id === (int) session('fundo_id'), 404);
-        abort_unless(Storage::disk('local')->exists($foto->ruta), 404);
 
-        return Storage::disk('local')->response($foto->ruta, headers: [
-            'Cache-Control' => 'private, max-age=3600',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
-    })->middleware('permiso:monitoreo.leer')->name('record-photo.show');
+    // Medicamentos e inventario sanitario
+    Route::get('medicamentos', App\Livewire\Medicamentos\Index::class)->middleware('permiso:medicamentos.leer')->name('medicamentos.index');
+    Route::get('medicamentos/nuevo', App\Livewire\Medicamentos\Form::class)->middleware('permiso:medicamentos.crear')->name('medicamentos.create');
+    Route::get('medicamentos/editar/{id}', App\Livewire\Medicamentos\Form::class)->middleware('permiso:medicamentos.actualizar')->name('medicamentos.edit');
+    Route::get('medicamentos/{medicamento}/ingreso', App\Livewire\Medicamentos\LoteForm::class)->middleware('permiso:medicamentos.crear')->name('medicamentos.lote.create');
+    Route::get('medicamentos/{medicamento}/movimiento', App\Livewire\Medicamentos\MovimientoForm::class)->middleware('permiso:medicamentos.actualizar')->name('medicamentos.movimiento.create');
+    Route::get('medicamentos/{id}', App\Livewire\Medicamentos\Show::class)->middleware('permiso:medicamentos.leer')->name('medicamentos.show');
 
-    Route::get('archivos/comprobantes/{movimiento}', function (Movimiento $movimiento) {
-        abort_unless((int) $movimiento->fundo_id === (int) session('fundo_id'), 404);
-        abort_unless($movimiento->comprobante_ruta, 404);
-        abort_unless(Storage::disk('local')->exists($movimiento->comprobante_ruta), 404);
+    // Insumos y Materiales de Botiquín
+    Route::get('insumos', App\Livewire\Insumos\Index::class)->middleware('permiso:medicamentos.leer')->name('insumos.index');
+    Route::get('insumos/nuevo', App\Livewire\Insumos\Form::class)->middleware('permiso:medicamentos.crear')->name('insumos.create');
+    Route::get('insumos/editar/{id}', App\Livewire\Insumos\Form::class)->middleware('permiso:medicamentos.actualizar')->name('insumos.edit');
+    Route::get('insumos/{id}', App\Livewire\Insumos\Show::class)->middleware('permiso:medicamentos.leer')->name('insumos.show');
+    Route::get('archivos/fotos-registro/{foto}', [SecureFileController::class, 'showRegistroFoto'])
+        ->middleware('permiso:monitoreo.leer')
+        ->name('record-photo.show');
 
-        return Storage::disk('local')->response($movimiento->comprobante_ruta, headers: [
-            // La URL estable del movimiento debe revalidarse tras reemplazar comprobante.
-            'Cache-Control' => 'private, no-cache',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
-    })->middleware('permiso:finanzas.leer')->name('movimiento.comprobante');
-
-    Route::get('archivos/asignaciones/{asignacion}/foto', function (AsignacionFamiliar $asignacion) {
-        abort_unless((int) $asignacion->fundo_id === (int) session('fundo_id'), 404);
-        abort_unless($asignacion->foto_ruta, 404);
-        abort_unless(Storage::disk('local')->exists($asignacion->foto_ruta), 404);
-
-        return Storage::disk('local')->response($asignacion->foto_ruta, headers: [
-            'Cache-Control' => 'private, max-age=86400',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
-    })->middleware('permiso:finanzas.leer')->name('asignacion.foto');
+    Route::get('archivos/comprobantes/{movimiento}', [SecureFileController::class, 'showComprobante'])
+        ->middleware('permiso:finanzas.leer')
+        ->name('movimiento.comprobante');
 
     // Buscador General route
     Route::get('buscador', Buscador::class)->middleware('permiso:buscador.leer')->name('buscador');
@@ -123,6 +102,9 @@ Route::middleware(['auth', 'verified', 'fundo', 'actividad'])->group(function ()
     Route::get('ajustes/backups/{backup}/download', DatabaseBackupDownloadController::class)
         ->middleware('permiso:ajustes.exportar')
         ->name('ajustes.backups.download');
+
+    // PDF preview endpoint — serves cached PDFs by token (no base64 in Livewire state)
+    Route::get('pdf-preview/{token}', PdfPreviewController::class)->name('pdf.preview');
 });
 
 Route::post('select-fundo/{fundo}', function (Fundo $fundo) {
@@ -149,9 +131,7 @@ Route::post('logout', function () {
     return redirect('/');
 })->middleware('auth')->name('logout');
 
-Route::get('sin-fundo', function () {
-    return 'No tienes fundos asignados. Contacta al administrador.';
-})->middleware('auth')->name('sin-fundo');
+Route::view('sin-fundo', 'errors.sin-fundo')->middleware('auth')->name('sin-fundo');
 
 Route::get('seleccionar-fundo', function () {
     $fundos = auth()->user()->fundos()->where('activo', true)->get();

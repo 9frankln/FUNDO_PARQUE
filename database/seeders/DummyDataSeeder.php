@@ -16,7 +16,6 @@ use App\Models\Ordeno;
 use App\Models\Parto;
 use App\Models\PesajeEngorde;
 use App\Models\ProduccionQueso;
-use App\Models\ProfilaxisRegistro;
 use App\Models\Raza;
 use App\Models\SanidadRegistro;
 use App\Support\AnimalCodeAllocator;
@@ -299,23 +298,25 @@ class DummyDataSeeder extends Seeder
                 ));
 
                 $applicationDate = $today->copy()->subDays($i * 3);
-                $prophylaxis = $restore(ProfilaxisRegistro::withTrashed()->updateOrCreate(
+                $restore(SanidadRegistro::withTrashed()->updateOrCreate(
                     [
                         'fundo_id' => $fundoId,
-                        'fecha_aplicacion' => $applicationDate,
+                        'animal_id' => $cow->id,
+                        'tipo_evento' => 'preventivo',
+                        'fecha_evento' => $applicationDate,
                         'producto_marca' => $products[$i - 1],
                     ],
                     [
                         'alcance' => $i % 3 === 0 ? 'lote' : 'individual',
                         'tipo_intervencion' => $interventions[($i - 1) % count($interventions)],
                         'proposito' => 'Programa demostrativo de prevención sanitaria.',
-                        'dosis' => ($i % 3 + 1).' ml',
                         'proxima_dosis' => $today->copy()->addDays(30 + ($i * 7)),
                         'responsable' => 'Dr. Manuel Torres',
-                        'observaciones' => 'Aplicación sin reacciones adversas.',
+                        'clasificacion' => 'enfermedad_infecciosa',
+                        'sintomas_diagnostico' => 'Programa demostrativo de prevención sanitaria.',
+                        'estado_clinico' => 'en_tratamiento',
                     ]
                 ));
-                $prophylaxis->animales()->sync([$cow->id]);
 
                 $birthDate = $today->copy()->subDays($i * 6);
                 $calf = $upsertAnimal('Cría de '.$cow->nombre, [

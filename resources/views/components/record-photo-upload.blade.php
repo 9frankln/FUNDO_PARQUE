@@ -1,14 +1,14 @@
 @props(['title' => 'Fotos del registro', 'existingPhotos' => [], 'newPhotos' => [], 'newFrames' => []])
 
-<section class="space-y-3 rounded-2xl border border-zinc-800/80 bg-zinc-900 p-4 sm:p-5">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-850 pb-2.5">
+<section class="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-2.5 dark:border-zinc-800">
         <div>
             <h3 class="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400">{{ $title }}</h3>
             <p class="mt-0.5 text-[10px] text-zinc-500">Una por vez o varias juntas · máximo 3 · WebP optimizado</p>
         </div>
 
         <div class="flex items-center gap-2">
-            <span class="inline-flex h-9 items-center rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 text-[10px] font-bold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+            <span class="inline-flex h-8 items-center rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 text-[10px] font-bold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
                 <span x-text="count"></span>&nbsp;de&nbsp;<span x-text="max"></span>
             </span>
         </div>
@@ -23,7 +23,7 @@
             @php
                 $frame = \App\Support\ImageFrame::normalize($photo['frame'] ?? null);
             @endphp
-            <div wire:key="existing-photo-{{ $photo['id'] }}" class="group relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+            <div wire:key="existing-photo-{{ $photo['id'] }}" class="group relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950">
                 <img src="{{ $photo['url'] }}" alt="Foto existente del registro" loading="lazy" class="h-full w-full object-cover"
                      style="object-position: {{ $frame['x'] }}% {{ $frame['y'] }}%; transform: scale({{ $frame['zoom'] }}); transform-origin: {{ $frame['x'] }}% {{ $frame['y'] }}%;">
                 <x-image-frame-editor

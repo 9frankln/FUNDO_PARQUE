@@ -15,21 +15,18 @@ class LoteCodeAllocator
 
     public function preview(int $fundoId, int $year): int
     {
-        $counter = (int) DB::table('lote_code_sequences')
+        $maxUsed = (int) DB::table('lotes_engorde')
             ->where('fundo_id', $fundoId)
             ->where('codigo_anio', $year)
-            ->value('ultimo_numero');
-        $existing = (int) LoteEngorde::withTrashed()
-            ->where('fundo_id', $fundoId)
-            ->where('codigo_anio', $year)
+            ->whereNull('deleted_at')
             ->max('codigo_secuencia');
 
-        $number = max($counter, $existing) + 1;
-        while ($number <= 999 && $this->isReserved($fundoId, $year, $number)) {
-            $number++;
+        $candidate = $maxUsed + 1;
+        while ($candidate <= 999 && $this->isReserved($fundoId, $year, $candidate)) {
+            $candidate++;
         }
 
-        return min(999, $number);
+        return min(999, $candidate);
     }
 
     public function allocate(LoteEngorde $lot, int $fundoId, int $year): array
@@ -42,25 +39,13 @@ class LoteCodeAllocator
             ];
         }
 
-        $existing = (int) LoteEngorde::withTrashed()
+        $maxUsed = (int) DB::table('lotes_engorde')
             ->where('fundo_id', $fundoId)
             ->where('codigo_anio', $year)
+            ->whereNull('deleted_at')
             ->max('codigo_secuencia');
-        DB::table('lote_code_sequences')->insertOrIgnore([
-            'fundo_id' => $fundoId,
-            'codigo_anio' => $year,
-            'ultimo_numero' => $existing,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
 
-        $counter = DB::table('lote_code_sequences')
-            ->where('fundo_id', $fundoId)
-            ->where('codigo_anio', $year)
-            ->lockForUpdate()
-            ->first();
-        $number = max((int) $counter->ultimo_numero, $existing) + 1;
-
+        $number = $maxUsed + 1;
         while ($number <= 999 && $this->isReserved($fundoId, $year, $number)) {
             $number++;
         }
@@ -71,10 +56,16 @@ class LoteCodeAllocator
             ]);
         }
 
-        DB::table('lote_code_sequences')->where('id', $counter->id)->update([
-            'ultimo_numero' => $number,
-            'updated_at' => now(),
-        ]);
+        DB::table('lote_code_sequences')->updateOrInsert(
+            [
+                'fundo_id' => $fundoId,
+                'codigo_anio' => $year,
+            ],
+            [
+                'ultimo_numero' => $number,
+                'updated_at' => now(),
+            ]
+        );
 
         return [
             'codigo' => self::format($year, $number),
@@ -85,8 +76,9 @@ class LoteCodeAllocator
 
     private function isReserved(int $fundoId, int $year, int $number): bool
     {
-        return LoteEngorde::withTrashed()
+        return DB::table('lotes_engorde')
             ->where('fundo_id', $fundoId)
+            ->whereNull('deleted_at')
             ->where('codigo', self::format($year, $number))
             ->exists();
     }

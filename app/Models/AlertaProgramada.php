@@ -12,7 +12,7 @@ class AlertaProgramada extends Model
     protected $table = 'alertas_programadas';
 
     protected $fillable = [
-        'fundo_id', 'animal_id', 'profilaxis_dosis_id', 'tipo', 'fecha_alerta',
+        'fundo_id', 'animal_id', 'tratamiento_dosis_id', 'tipo', 'fecha_alerta',
         'mensaje', 'leida',
     ];
 
@@ -26,9 +26,9 @@ class AlertaProgramada extends Model
         return $this->belongsTo(Animal::class);
     }
 
-    public function dosisProfilaxis()
+    public function dosisTratamiento()
     {
-        return $this->belongsTo(ProfilaxisDosisProgramada::class, 'profilaxis_dosis_id');
+        return $this->belongsTo(TratamientoDosis::class, 'tratamiento_dosis_id');
     }
 
     public function scopePendientes($query)

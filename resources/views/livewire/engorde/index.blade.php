@@ -9,18 +9,19 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
             @if(auth()->user()->tienePermiso('engorde', 'exportar'))
-                <button wire:click="$set('showExportModal', true)"
-                        class="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800">
+                <button wire:click="openExportModal"
+                        class="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-zinc-700 hover:bg-zinc-800 cursor-pointer">
                     <span>&#x1F4E5;</span> Resumen PDF
                 </button>
                 <button wire:click="openDetailedReportModal"
-                        class="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300">
+                        class="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300 cursor-pointer">
                     Reporte detallado
                 </button>
             @endif
             @if(auth()->user()->tienePermiso('engorde', 'crear'))
                 <a href="{{ route('engorde.lote.create') }}" class="agro-button">
-                    <span>➕</span> Crear Lote de Engorde
+                    <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    <span>Crear Lote de Engorde</span>
                 </a>
             @endif
         </div>
@@ -36,7 +37,7 @@
                            id="engorde-filter-content"
                            reset="resetFilters"
                            loading-target="periodo,anio,mes,fechaDesde,fechaHasta,search,estado,perPage">
-        <div class="border-t border-zinc-850/60 pt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-end">
+        <div class="border-t border-zinc-800/60 pt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-end">
             <div class="xl:col-span-2">
                 <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Buscar</label>
                 <div class="relative w-full">
@@ -65,13 +66,11 @@
             </div>
             <div>
                 <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Desde</label>
-                <input type="date" wire:model.live="fechaDesde"
-                       class="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-200 outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20">
+                <x-date-picker model="fechaDesde" placeholder="dd/mm/aaaa" compact />
             </div>
             <div>
                 <label class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">Hasta</label>
-                <input type="date" wire:model.live="fechaHasta"
-                       class="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-200 outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20">
+                <x-date-picker model="fechaHasta" placeholder="dd/mm/aaaa" compact />
             </div>
         </div>
     </x-collapsible-filters>
@@ -91,12 +90,12 @@
                     <th class="p-4 text-right whitespace-nowrap">Acciones</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-zinc-850/60 text-sm text-zinc-300">
+            <tbody class="divide-y divide-zinc-800/60 text-sm text-zinc-300">
                 @forelse($lotes as $lote)
                     @php
                         $isRecent = $this->isRecentRecord('engorde.lotes', $lote->id);
                     @endphp
-                    <tr class="transition duration-500 {{ $isRecent ? 'bg-emerald-500/10' : 'hover:bg-zinc-850/20' }}">
+                    <tr class="transition duration-500 {{ $isRecent ? 'bg-emerald-500/10' : 'hover:bg-zinc-800/20' }}">
                         <td class="p-4 font-bold text-zinc-100 whitespace-nowrap">
                             {{ $lote->codigo }}
                             <x-recent-record-badge :show="$isRecent" :action="$recentRecord['action'] ?? null" />
@@ -125,8 +124,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="p-12 text-center text-zinc-550">
-                            <div class="text-3xl">📭</div>
+                        <td colspan="8" class="p-12 text-center text-zinc-500">
+                            <div class="text-3xl">📄</div>
                             <div class="mt-2 font-bold text-sm">No se encontraron lotes de engorde</div>
                             <div class="text-xs text-zinc-500 mt-1">Crea un nuevo lote para comenzar el registro.</div>
                         </td>
@@ -147,40 +146,102 @@
         </div>
     </div>
 
-    @if($showExportModal)
-        <div x-data x-init="document.body.classList.add('overflow-hidden'); return () => document.body.classList.remove('overflow-hidden')" class="agro-dialog-overlay">
-            <div x-data="{ columns: @js($selectedColumns) }"
-                 role="dialog" aria-modal="true" aria-label="Exportar lotes de engorde"
-                 class="agro-dialog agro-dialog--md agro-dialog--scroll space-y-6 p-4 sm:p-6">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Exportar lotes de engorde</h3>
-                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">PDF respetará filtros y orden actuales.</p>
-                    </div>
-                    <button wire:click="$set('showExportModal', false)" class="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Cerrar modal">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
+    <!-- Export / Live PDF Preview Modal -->
+    <x-pdf-preview-modal
+        :show-export-modal="$showExportModal"
+        :export-step="$exportStep"
+        :pdf-preview-data="$pdfPreviewData"
+        :pdf-preview-token="$pdfPreviewToken"
+        :pdf-preview-filename="$pdfPreviewFilename"
+        :pdf-preview-title="$pdfPreviewTitle"
+        :pdf-preview-row-count="$pdfPreviewRowCount"
+        :pdf-preview-page-count="$pdfPreviewPageCount"
+        :pdf-include-signatures="$pdfIncludeSignatures"
+        :pdf-scale="$pdfScale"
+        :pdf-signature-scale="$pdfSignatureScale"
+        :pdf-table-color-mode="$pdfTableColorMode"
+        :pdf-table-radius="$pdfTableRadius"
+        :pdf-table-preset="$pdfTablePreset"
+        :has-pdf-customization="true"
+    >
+        {{-- OPTIONS STEP --}}
+        <div>
+            <div>
+                <h3 class="text-lg font-bold text-zinc-900 dark:text-white">Exportar Resumen de Lotes de Engorde</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">PDF horizontal resumen. Respeta filtros, orden y fundo activo.</p>
+            </div>
+            <div class="space-y-4 mt-4">
                 <div>
-                    <span class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Formato</span>
+                    <span class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-2">Formato</span>
                     <div class="flex items-center gap-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm font-semibold text-rose-900 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-100">
                         <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-600 text-xs font-black text-white">PDF</span>
                         <span>Documento PDF (.pdf)</span>
                     </div>
                 </div>
 
+                {{-- AJUSTES EXCLUSIVOS DE PDF --}}
+                <div class="rounded-xl border border-emerald-500/30 bg-emerald-50/40 p-3 dark:border-emerald-500/20 dark:bg-emerald-950/20 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                        <div>
+                            <span class="block text-xs font-bold text-emerald-900 dark:text-emerald-200">Compactación de texto y celdas</span>
+                            <p class="text-[11px] text-emerald-700 dark:text-emerald-400">Reduce el tamaño de fuente y padding para mostrar más lotes por página.</p>
+                        </div>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 w-full sm:w-auto rounded-lg border border-emerald-300 bg-white p-1 text-xs font-bold dark:border-emerald-700 dark:bg-zinc-800 shadow-2xs">
+                            <button type="button" wire:click="$set('pdfScale', '45')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ in_array($pdfScale, ['40', '45'], true) ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                45% <span class="block text-[9px] font-medium opacity-80 sm:inline">Mín</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '55')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ in_array($pdfScale, ['50', '55'], true) ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                55% <span class="block text-[9px] font-medium opacity-80 sm:inline">Hiper</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '65')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '65' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                65% <span class="block text-[9px] font-medium opacity-80 sm:inline">S-Ultra</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '75')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '75' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                75% <span class="block text-[9px] font-medium opacity-80 sm:inline">Ultra</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '85')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '85' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                85% <span class="block text-[9px] font-medium opacity-80 sm:inline">Comp</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '100')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '100' ? 'bg-emerald-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-emerald-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                100% <span class="block text-[9px] font-medium opacity-80 sm:inline">Est</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between border-t border-emerald-200/60 pt-2.5 dark:border-emerald-800/60">
+                        <div>
+                            <span class="block text-xs font-bold text-emerald-900 dark:text-emerald-200">Bloque de firmas oficiales</span>
+                            <p class="text-[11px] text-emerald-700 dark:text-emerald-400">Incluye sellos y firmas digitales configuradas al final del documento.</p>
+                        </div>
+                        <label class="relative inline-flex cursor-pointer items-center">
+                            <input type="checkbox" wire:model.live="pdfIncludeSignatures" class="sr-only peer">
+                            <div class="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+                </div>
+
                 <div>
                     <div class="mb-2 flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Columnas</span>
-                        <button type="button" x-on:click="columns = columns.length === {{ count($availableColumns) }} ? [] : @js(array_keys($availableColumns))" class="text-xs font-semibold text-violet-600 hover:text-violet-500 dark:text-violet-400">Seleccionar todas</button>
+                        <span class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Columnas</span>
+                        <button type="button" wire:click="$set('selectedColumns', {{ count($selectedColumns) === count($availableColumns) ? '[]' : json_encode(array_keys($availableColumns)) }})" class="text-xs font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400">
+                            {{ count($selectedColumns) === count($availableColumns) ? 'Deseleccionar todas' : 'Seleccionar todas' }}
+                        </button>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         @foreach($availableColumns as $key => $label)
-                            <label :class="columns.includes('{{ $key }}') ? 'border-violet-500 bg-violet-100 text-violet-950 shadow-sm ring-1 ring-violet-500/20 dark:border-violet-400 dark:bg-violet-400/20 dark:text-violet-50' : 'border-slate-200 bg-white text-slate-600 hover:border-violet-300 hover:bg-violet-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-violet-400/10'" class="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs font-medium transition">
-                                <input type="checkbox" x-model="columns" value="{{ $key }}" class="sr-only">
-                                <span :class="columns.includes('{{ $key }}') ? 'border-violet-700 bg-violet-600' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900'" class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition">
-                                    <svg x-cloak x-show="columns.includes('{{ $key }}')" class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="m5 12 4 4L19 6" /></svg>
+                            @php $isChecked = in_array($key, $selectedColumns, true); @endphp
+                            <label class="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs font-medium transition {{ $isChecked ? 'border-emerald-500 bg-emerald-100 text-emerald-950 shadow-sm ring-1 ring-emerald-500/20 dark:border-emerald-400 dark:bg-emerald-400/20 dark:text-emerald-50' : 'border-zinc-200 bg-white text-zinc-600 hover:border-emerald-300 hover:bg-emerald-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-emerald-400/10' }}">
+                                <input type="checkbox" wire:model.live="selectedColumns" value="{{ $key }}" class="sr-only">
+                                <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition {{ $isChecked ? 'border-emerald-700 bg-emerald-600' : 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900' }}">
+                                    @if($isChecked)
+                                        <svg class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg>
+                                    @endif
                                 </span>
                                 <span>{{ $label }}</span>
                             </label>
@@ -189,17 +250,20 @@
                     @error('selectedColumns') <p class="mt-2 text-xs font-medium text-rose-500">{{ $message }}</p> @enderror
                     @error('selectedColumns.*') <p class="mt-2 text-xs font-medium text-rose-500">{{ $message }}</p> @enderror
                 </div>
-
-                <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-end">
-                    <button wire:click="$set('showExportModal', false)" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300">Cancelar</button>
-                    <button type="button" x-on:click="$wire.exportar(columns)" wire:loading.attr="disabled" wire:loading.class="opacity-60 cursor-wait" wire:target="exportar"
-                            class="rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition hover:from-indigo-500 hover:to-blue-500 disabled:cursor-wait disabled:opacity-60">
-                        Generar PDF
-                    </button>
-                </div>
+            </div>
+            <div class="flex flex-col-reverse gap-3 border-t border-zinc-200 pt-4 mt-4 dark:border-zinc-700 sm:flex-row sm:items-center sm:justify-end">
+                <button type="button" wire:click="closeExportModal"
+                        class="inline-flex h-10 items-center justify-center px-4 rounded-xl border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 text-xs sm:text-sm font-bold transition active:scale-95 cursor-pointer">
+                    Cancelar
+                </button>
+                <button type="button" wire:click="exportar" wire:loading.attr="disabled" wire:loading.class="opacity-70 cursor-wait" wire:target="exportar"
+                        class="inline-flex h-10 items-center justify-center gap-2 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition active:scale-95 cursor-pointer disabled:cursor-wait">
+                    <span wire:loading.remove wire:target="exportar">Ver Vista Previa PDF</span>
+                    <span wire:loading wire:target="exportar">Generando vista previa...</span>
+                </button>
             </div>
         </div>
-    @endif
+    </x-pdf-preview-modal>
 
     @if($showDetailedReportModal)
         <div x-data x-init="document.body.classList.add('overflow-hidden'); return () => document.body.classList.remove('overflow-hidden')" class="agro-dialog-overlay">
@@ -207,34 +271,81 @@
                  role="dialog" aria-modal="true" aria-label="Reporte general detallado"
                  class="agro-dialog agro-dialog--lg agro-dialog--scroll space-y-5 p-4 sm:p-6">
                 <div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Reporte general detallado</h3>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Agrupa lotes elegidos y muestra datos completos de cada animal en PDF horizontal.</p>
+                    <h3 class="text-xl font-bold text-zinc-900 dark:text-white">Reporte general detallado de engorde</h3>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Agrupa lotes elegidos y muestra datos completos de cada animal con diseño curvado y temas cromáticos rotativos en PDF horizontal.</p>
+                </div>
+
+                {{-- AJUSTES EXCLUSIVOS DE PDF DETALLADO --}}
+                <div class="rounded-xl border border-rose-500/30 bg-rose-50/40 p-3 dark:border-rose-500/20 dark:bg-rose-950/20 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                        <div>
+                            <span class="block text-xs font-bold text-rose-900 dark:text-rose-200">Compactación de texto y celdas</span>
+                            <p class="text-[11px] text-rose-700 dark:text-rose-400">Reduce el tamaño de fuente para mostrar más animales y lotes por página.</p>
+                        </div>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-1 w-full sm:w-auto rounded-lg border border-rose-300 bg-white p-1 text-xs font-bold dark:border-rose-700 dark:bg-zinc-800 shadow-2xs">
+                            <button type="button" wire:click="$set('pdfScale', '45')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ in_array($pdfScale, ['40', '45'], true) ? 'bg-rose-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-rose-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                45% <span class="block text-[9px] font-medium opacity-80 sm:inline">Mín</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '55')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ in_array($pdfScale, ['50', '55'], true) ? 'bg-rose-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-rose-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                55% <span class="block text-[9px] font-medium opacity-80 sm:inline">Hiper</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '65')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '65' ? 'bg-rose-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-rose-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                65% <span class="block text-[9px] font-medium opacity-80 sm:inline">S-Ultra</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '75')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '75' ? 'bg-rose-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-rose-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                75% <span class="block text-[9px] font-medium opacity-80 sm:inline">Ultra</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '85')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '85' ? 'bg-rose-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-rose-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                85% <span class="block text-[9px] font-medium opacity-80 sm:inline">Comp</span>
+                            </button>
+                            <button type="button" wire:click="$set('pdfScale', '100')"
+                                    class="px-2 py-1.5 rounded-md transition cursor-pointer text-center text-[11px] font-black active:scale-95 {{ $pdfScale === '100' ? 'bg-rose-600 text-white shadow-xs' : 'text-zinc-600 hover:bg-rose-50 dark:text-zinc-400 dark:hover:bg-zinc-700' }}">
+                                100% <span class="block text-[9px] font-medium opacity-80 sm:inline">Est</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between border-t border-rose-200/60 pt-2.5 dark:border-rose-800/60">
+                        <div>
+                            <span class="block text-xs font-bold text-rose-900 dark:text-rose-200">Bloque de firmas oficiales</span>
+                            <p class="text-[11px] text-rose-700 dark:text-rose-400">Incluye sellos y firmas digitales configuradas al final del documento.</p>
+                        </div>
+                        <label class="relative inline-flex cursor-pointer items-center">
+                            <input type="checkbox" wire:model.live="pdfIncludeSignatures" class="sr-only peer">
+                            <div class="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-zinc-600 peer-checked:bg-rose-600"></div>
+                        </label>
+                    </div>
                 </div>
 
                 <div>
-                    <span class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Lotes a incluir</span>
+                    <span class="mb-2 block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Lotes a incluir</span>
                     <div class="grid gap-2 sm:grid-cols-2">
-                        <label :class="scope === 'filtered' ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-100' : 'border-slate-200 dark:border-slate-700'" class="cursor-pointer rounded-xl border p-3 text-sm font-semibold">
+                        <label :class="scope === 'filtered' ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-400/15 dark:text-emerald-100' : 'border-zinc-200 dark:border-zinc-700'" class="cursor-pointer rounded-xl border p-3 text-sm font-semibold">
                             <input type="radio" x-model="scope" value="filtered" class="sr-only"> Todos los resultados filtrados
                             <span class="mt-1 block text-xs font-normal opacity-65">{{ $detailedReportLots->count() }} lotes disponibles</span>
                         </label>
-                        <label :class="scope === 'selected' ? 'border-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-400/15 dark:text-rose-100' : 'border-slate-200 dark:border-slate-700'" class="cursor-pointer rounded-xl border p-3 text-sm font-semibold">
+                        <label :class="scope === 'selected' ? 'border-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-400/15 dark:text-rose-100' : 'border-zinc-200 dark:border-zinc-700'" class="cursor-pointer rounded-xl border p-3 text-sm font-semibold">
                             <input type="radio" x-model="scope" value="selected" class="sr-only"> Escoger lotes
                             <span class="mt-1 block text-xs font-normal opacity-65" x-text="`${lots.length} seleccionados`"></span>
                         </label>
                     </div>
                 </div>
 
-                <div x-cloak x-show="scope === 'selected'" class="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                <div x-cloak x-show="scope === 'selected'" class="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
                     <div class="mb-2 flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Selección de lotes</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Selección de lotes</span>
                         <button type="button" x-on:click="lots = lots.length === {{ $detailedReportLots->count() }} ? [] : @js($detailedReportLots->pluck('id')->map(fn ($id) => (string) $id)->values())" class="text-xs font-semibold text-rose-600 dark:text-rose-400">Seleccionar todos / limpiar</button>
                     </div>
                     <div class="grid max-h-52 gap-2 overflow-y-auto sm:grid-cols-2">
                         @foreach($detailedReportLots as $reportLot)
-                            <label :class="lots.includes('{{ $reportLot->id }}') ? 'border-rose-400 bg-rose-50 dark:bg-rose-400/10' : 'border-slate-200 dark:border-slate-700'" class="flex cursor-pointer items-center gap-3 rounded-lg border p-3">
+                            <label :class="lots.includes('{{ $reportLot->id }}') ? 'border-rose-400 bg-rose-50 dark:bg-rose-400/10' : 'border-zinc-200 dark:border-zinc-700'" class="flex cursor-pointer items-center gap-3 rounded-lg border p-3">
                                 <input type="checkbox" x-model="lots" value="{{ $reportLot->id }}" class="agro-checkbox h-4 w-4 rounded">
-                                <span class="min-w-0"><strong class="block text-sm text-slate-900 dark:text-white">{{ $reportLot->codigo }}</strong><small class="block truncate text-slate-500">{{ $reportLot->nombre ?: 'Sin nombre' }} · {{ $reportLot->animales_count }} animales</small></span>
+                                <span class="min-w-0"><strong class="block text-sm text-zinc-900 dark:text-white">{{ $reportLot->codigo }}</strong><small class="block truncate text-zinc-500">{{ $reportLot->nombre ?: 'Sin nombre' }} · {{ $reportLot->animales_count }} animales</small></span>
                             </label>
                         @endforeach
                     </div>
@@ -243,14 +354,14 @@
 
                 <div>
                     <div class="mb-2 flex items-center justify-between gap-3">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Datos por animal</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Datos por animal</span>
                         <button type="button" x-on:click="columns = columns.length === {{ count($detailedReportAvailableColumns) }} ? [] : @js(array_keys($detailedReportAvailableColumns))" class="text-xs font-semibold text-violet-600 dark:text-violet-400">Seleccionar todas</button>
                     </div>
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                         @foreach($detailedReportAvailableColumns as $key => $label)
-                            <label :class="columns.includes('{{ $key }}') ? 'border-violet-500 bg-violet-100 text-violet-950 dark:border-violet-400 dark:bg-violet-400/20 dark:text-violet-50' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'" class="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs font-medium">
+                            <label :class="columns.includes('{{ $key }}') ? 'border-violet-500 bg-violet-100 text-violet-950 dark:border-violet-400 dark:bg-violet-400/20 dark:text-violet-50' : 'border-zinc-200 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'" class="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs font-medium">
                                 <input type="checkbox" x-model="columns" value="{{ $key }}" class="sr-only">
-                                <span :class="columns.includes('{{ $key }}') ? 'border-violet-700 bg-violet-600' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900'" class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2">
+                                <span :class="columns.includes('{{ $key }}') ? 'border-violet-700 bg-violet-600' : 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'" class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2">
                                     <svg x-cloak x-show="columns.includes('{{ $key }}')" class="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="m5 12 4 4L19 6" /></svg>
                                 </span>
                                 <span>{{ $label }}</span>
@@ -261,11 +372,16 @@
                     @error('detailedReportColumns.*') <p class="mt-2 text-xs font-medium text-rose-500">{{ $message }}</p> @enderror
                 </div>
 
-                <div class="flex justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
-                    <button wire:click="$set('showDetailedReportModal', false)" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancelar</button>
-                    <button type="button" x-on:click="$wire.exportDetailedReport(scope, lots, columns)" wire:loading.attr="disabled" wire:target="exportDetailedReport" class="rounded-xl bg-rose-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-500 disabled:opacity-60">Generar PDF detallado</button>
+                <div class="flex justify-end gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                    <button wire:click="$set('showDetailedReportModal', false)" class="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">Cancelar</button>
+                    <button type="button" x-on:click="$wire.exportDetailedReport(scope, lots, columns)" wire:loading.attr="disabled" wire:target="exportDetailedReport" class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-500 disabled:opacity-60">
+                        <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <span>Ver Vista Previa Detallada</span>
+                    </button>
                 </div>
             </div>
         </div>
     @endif
 </x-recent-record-host>
+
+

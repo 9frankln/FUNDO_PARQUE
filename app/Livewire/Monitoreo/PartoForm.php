@@ -241,6 +241,12 @@ class PartoForm extends Component
                     if ($mother && ! $mother->isMatureBovineFemale()) {
                         $fail('La madre debe tener al menos '.Animal::MIN_MILKING_AGE_MONTHS.' meses.');
                     }
+                    if ($mother?->fecha_nacimiento && filled($this->fechaParto)) {
+                        $partoDate = \Carbon\Carbon::parse($this->fechaParto);
+                        if ($partoDate->lt($mother->fecha_nacimiento)) {
+                            $fail('La fecha del parto no puede ser anterior al nacimiento de la madre ('.$mother->fecha_nacimiento->format('d/m/Y').').');
+                        }
+                    }
                 },
             ],
             'fechaParto' => 'required|date|before_or_equal:today',
@@ -420,6 +426,16 @@ class PartoForm extends Component
                     'observaciones' => $this->observaciones ?: null,
                 ])->save();
 
+                // Comunicación de datos: la madre pasa a lactante cuando la cría
+                // nace viva (o a seca si fue aborto / cría muerta).
+                if (! $this->isEdit || $parto->wasRecentlyCreated) {
+                    $madre->update([
+                        'estado_reproductivo' => $shouldHaveCalf && $this->criaEstado !== 'muerto_al_nacer'
+                            ? 'lactante'
+                            : 'seca',
+                    ]);
+                }
+
                 $removedPaths = $this->isEdit ? $this->removeMarkedRecordPhotos($parto) : [];
                 $this->attachRecordPhotos($parto, $newPhotoPaths);
 
@@ -442,14 +458,18 @@ class PartoForm extends Component
             Storage::disk('public')->delete($previousCriaPhoto);
         }
 
-        session()->flash('success', match (true) {
-            $this->isEdit => 'Registro de parto actualizado.',
-            $createdCalf => 'Parto registrado exitosamente (nueva cría registrada en inventario).',
-            default => 'Parto registrado exitosamente.',
-        });
+        session()->flash('swal', [
+            'icon' => 'success',
+            'title' => $this->isEdit ? '¡Actualizado!' : '¡Registrado!',
+            'text' => match (true) {
+                $this->isEdit => 'Registro de parto actualizado.',
+                $createdCalf => 'Parto registrado exitosamente (nueva cría registrada en inventario).',
+                default => 'Parto registrado exitosamente.',
+            },
+        ]);
         $this->publishRecentRecord('monitoreo.partos', $parto);
 
-        return redirect()->route('monitoreo.index');
+        return $this->redirectRoute('monitoreo.index', navigate: true);
     }
 
     public function render()

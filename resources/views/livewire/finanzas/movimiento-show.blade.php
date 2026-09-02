@@ -26,7 +26,25 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <section class="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900">
             <div class="aspect-[4/3] bg-zinc-950">
-                @if($movimiento->comprobante_ruta && $movimiento->comprobanteEsImagen())
+                @if($movimiento->compraMedicamento?->medicamento?->foto_ruta)
+                    @php
+                        $sharedMedicine = $movimiento->compraMedicamento->medicamento;
+                        $receiptDetailFrame = \App\Support\ImageFrame::normalize($sharedMedicine->foto_encuadre);
+                        $receiptUrl = asset('storage/'.$sharedMedicine->foto_ruta).'?v='.sha1($sharedMedicine->foto_ruta);
+                    @endphp
+                    <a href="{{ route('medicamentos.show', $sharedMedicine->id) }}" wire:navigate title="Abrir medicamento">
+                        <img src="{{ $receiptUrl }}" alt="Foto de {{ $sharedMedicine->nombre }}" class="h-full w-full object-cover" decoding="async" style="object-position: {{ $receiptDetailFrame['x'] }}% {{ $receiptDetailFrame['y'] }}%; transform: scale({{ $receiptDetailFrame['zoom'] }}); transform-origin: {{ $receiptDetailFrame['x'] }}% {{ $receiptDetailFrame['y'] }}%;">
+                    </a>
+                @elseif($movimiento->compraInsumo?->insumo?->foto_ruta)
+                    @php
+                        $sharedInsumo = $movimiento->compraInsumo->insumo;
+                        $receiptDetailFrame = \App\Support\ImageFrame::normalize($sharedInsumo->foto_encuadre);
+                        $receiptUrl = asset('storage/'.$sharedInsumo->foto_ruta).'?v='.sha1($sharedInsumo->foto_ruta);
+                    @endphp
+                    <a href="{{ route('insumos.show', $sharedInsumo->id) }}" wire:navigate title="Abrir insumo">
+                        <img src="{{ $receiptUrl }}" alt="Foto de {{ $sharedInsumo->nombre }}" class="h-full w-full object-cover" decoding="async" style="object-position: {{ $receiptDetailFrame['x'] }}% {{ $receiptDetailFrame['y'] }}%; transform: scale({{ $receiptDetailFrame['zoom'] }}); transform-origin: {{ $receiptDetailFrame['x'] }}% {{ $receiptDetailFrame['y'] }}%;">
+                    </a>
+                @elseif($movimiento->comprobante_ruta && $movimiento->comprobanteEsImagen())
                     @php
                         $receiptDetailFrame = \App\Support\ImageFrame::normalize($movimiento->comprobante_encuadre);
                         $receiptUrl = route('movimiento.comprobante', $movimiento).'?v='.sha1($movimiento->comprobante_ruta);
@@ -73,12 +91,80 @@
                     <dt class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Moneda</dt>
                     <dd class="mt-1.5 font-semibold text-zinc-100">{{ $movimiento->moneda }}</dd>
                 </div>
+                @if($movimiento->beneficiario && ! $movimiento->compraMedicamento && ! $movimiento->compraInsumo)
+                    <div class="rounded-2xl border border-violet-500/25 bg-violet-500/10 p-4">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-violet-400">Beneficiario</dt>
+                        <dd class="mt-1.5 font-bold text-violet-100">{{ $movimiento->beneficiario }}</dd>
+                    </div>
+                @endif
+                @if($movimiento->proposito && ! $movimiento->compraMedicamento && ! $movimiento->compraInsumo)
+                    <div class="rounded-2xl border border-violet-500/25 bg-violet-500/10 p-4">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-violet-400">Propósito</dt>
+                        <dd class="mt-1.5 font-bold text-violet-100">{{ ucfirst(str_replace('_', ' ', $movimiento->proposito)) }}</dd>
+                    </div>
+                @endif
+                @if($medicineLot = $movimiento->compraMedicamento)
+                    <div class="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4 sm:col-span-2">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Compra de medicamento</dt>
+                        <dd class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-cyan-100">
+                            <a href="{{ route('medicamentos.show', $medicineLot->medicamento_id) }}" wire:navigate class="font-black hover:text-cyan-300">{{ $medicineLot->medicamento->nombre }}</a>
+                            <span>Lote {{ $medicineLot->numero_lote }}</span>
+                            <span>{{ (float) $medicineLot->cantidad_inicial + 0 }} {{ $medicineLot->medicamento->unidad_stock }}</span>
+                            <span>Vence {{ $medicineLot->fecha_vencimiento->format('d/m/Y') }}</span>
+                        </dd>
+                    </div>
+                @elseif($insumoLot = $movimiento->compraInsumo)
+                    <div class="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 sm:col-span-2">
+                        <dt class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Compra de insumo / material</dt>
+                        <dd class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-emerald-100">
+                            <a href="{{ route('insumos.show', $insumoLot->insumo_id) }}" wire:navigate class="font-black hover:text-emerald-300">{{ $insumoLot->insumo->nombre }}</a>
+                            <span>Lote {{ $insumoLot->numero_lote }}</span>
+                            <span>{{ (float) $insumoLot->cantidad_inicial + 0 }} {{ $insumoLot->insumo->unidad_stock }}</span>
+                            @if($insumoLot->fecha_vencimiento)
+                                <span>Vence {{ $insumoLot->fecha_vencimiento->format('d/m/Y') }}</span>
+                            @else
+                                <span>No perecible</span>
+                            @endif
+                        </dd>
+                    </div>
+                @endif
             </dl>
 
             <div class="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
                 <h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Descripción</h3>
-                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{{ $movimiento->descripcion ?: 'Sin descripción adicional.' }}</p>
+                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{{ $movimiento->descripcionLegible() ?: 'Sin descripción adicional.' }}</p>
             </div>
+
+            @if($movimiento->animalesVendidos->isNotEmpty())
+                <div class="mt-5">
+                    <h3 class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Animales vendidos</h3>
+                    <p class="mt-1 text-xs text-zinc-500">Toca el código para abrir la ficha del animal.</p>
+                    @if($compradorVenta = $movimiento->compradorVentaAnimal())
+                        <p class="mt-2 text-xs font-semibold text-zinc-400">Comprador: <span class="text-zinc-200">{{ $compradorVenta }}</span></p>
+                    @endif
+                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        @foreach($movimiento->animalesVendidos as $animalVendido)
+                            <a href="{{ route('animal.show', $animalVendido->id) }}"
+                               wire:navigate
+                               aria-label="Ver ficha del animal {{ $animalVendido->arete }}"
+                               class="group flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 outline-none transition hover:border-emerald-400/50 hover:bg-emerald-500/10 focus-visible:ring-2 focus-visible:ring-emerald-400/60">
+                                <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-zinc-800">
+                                    @if($animalVendido->foto_ruta)
+                                        <img src="{{ asset('storage/' . $animalVendido->foto_ruta) }}" alt="{{ $animalVendido->nombre }}" class="h-full w-full object-cover" loading="lazy" decoding="async">
+                                    @else
+                                        <div class="flex h-full w-full items-center justify-center text-lg" aria-hidden="true">🐄</div>
+                                    @endif
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-emerald-300 group-hover:text-emerald-200">{{ $animalVendido->arete }}</p>
+                                    <p class="truncate text-xs text-zinc-400">{{ $animalVendido->nombre ?: 'Sin nombre' }}</p>
+                                </div>
+                                <svg class="ml-auto h-4 w-4 shrink-0 text-zinc-600 transition group-hover:text-emerald-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6" /></svg>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </section>
     </div>
 

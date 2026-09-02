@@ -1,31 +1,42 @@
 <script>
     (() => {
         const root = document.documentElement;
-        let cleanupFrame = null;
-        const applyTheme = (theme, persist = false) => {
-            if (cleanupFrame) {
-                cancelAnimationFrame(cleanupFrame);
+        
+        const getSavedTheme = () => {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'dark' || saved === 'light') {
+                return saved;
             }
+            return 'light'; // Default to light mode
+        };
 
+        const applyTheme = (theme, persist = false) => {
+            const isDark = theme === 'dark';
+            // Desactiva transiciones para que el cambio de tema se aplique de golpe,
+            // nunca como colores escalonados por componente.
             root.classList.add('theme-switching');
-            root.classList.toggle('dark', theme === 'dark');
+            root.classList.toggle('dark', isDark);
             if (persist) {
                 localStorage.setItem('theme', theme);
             }
-            cleanupFrame = requestAnimationFrame(() => root.classList.remove('theme-switching'));
+            // Reactiva transiciones en el siguiente frame (doble rAF garantiza estilo aplicado).
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => root.classList.remove('theme-switching'));
+            });
         };
-        const savedTheme = localStorage.getItem('theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        applyTheme(savedTheme ?? (prefersDark ? 'dark' : 'light'));
+
+        // Apply immediately before render
+        applyTheme(getSavedTheme());
+
+        window.getTheme = () => getSavedTheme();
 
         window.setTheme = (theme) => {
-            const switchTheme = () => applyTheme(theme, true);
-            if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                switchTheme();
-                return;
-            }
-
-            document.startViewTransition(switchTheme);
+            applyTheme(theme, true);
         };
+
+        // Enforce theme on Livewire SPA navigation
+        document.addEventListener('livewire:navigated', () => {
+            applyTheme(getSavedTheme());
+        });
     })();
 </script>

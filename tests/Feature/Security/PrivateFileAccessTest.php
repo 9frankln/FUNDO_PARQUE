@@ -3,10 +3,13 @@
 namespace Tests\Feature\Security;
 
 use App\Livewire\Finanzas\MovimientoForm;
+use App\Models\Animal;
 use App\Models\CategoriaFinanciera;
+use App\Models\Especie;
 use App\Models\Fundo;
 use App\Models\Movimiento;
-use App\Models\ProfilaxisRegistro;
+use App\Models\Raza;
+use App\Models\SanidadRegistro;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -37,12 +40,34 @@ class PrivateFileAccessTest extends TestCase
             'fecha' => now()->toDateString(),
             'comprobante_ruta' => 'comprobantes/privado.pdf',
         ]);
-        $profilaxis = ProfilaxisRegistro::create([
+        $species = Especie::create(['nombre' => 'Bovino', 'codigo_animal' => 'BOV', 'activo' => true]);
+        $breed = Raza::create(['especie_id' => $species->id, 'nombre' => 'Simmental', 'activo' => true]);
+        $animal = Animal::create([
             'fundo_id' => $fundo->id,
+            'especie_id' => $species->id,
+            'raza_id' => $breed->id,
+            'arete' => 'BOV26-099',
+            'codigo_prefijo' => 'BOV',
+            'codigo_anio' => now()->year,
+            'codigo_secuencia' => 99,
+            'nombre' => 'Animal prueba',
+            'genero' => 'hembra',
+            'estado_productivo' => 'produccion',
+            'tipo_alta' => 'compra',
+            'fecha_alta' => now()->subYears(2)->toDateString(),
+            'edad_estimada_meses_alta' => 24,
+            'activo' => true,
+        ]);
+        $profilaxis = SanidadRegistro::create([
+            'fundo_id' => $fundo->id,
+            'animal_id' => $animal->id,
+            'tipo_evento' => 'preventivo',
+            'fecha_evento' => now()->toDateString(),
             'alcance' => 'individual',
-            'fecha_aplicacion' => now()->toDateString(),
             'tipo_intervencion' => 'vacuna',
             'producto_marca' => 'Prueba',
+            'clasificacion' => 'enfermedad_infecciosa',
+            'estado_clinico' => 'en_tratamiento',
         ]);
         $photo = $profilaxis->fotos()->create([
             'fundo_id' => $fundo->id,

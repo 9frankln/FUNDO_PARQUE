@@ -42,6 +42,7 @@ class AnimalInventoryService
         Movimiento $movement,
         array $animalIds,
         ?string $buyer = null,
+        array $animalPrices = [],
     ): array {
         $animalIds = collect($animalIds)->map(fn ($id) => (int) $id)->unique()->values();
         $animals = Animal::query()
@@ -57,13 +58,21 @@ class AnimalInventoryService
         }
 
         foreach ($animals as $animal) {
+            $price = isset($animalPrices[$animal->id]) && is_numeric($animalPrices[$animal->id]) && (float) $animalPrices[$animal->id] > 0
+                ? (float) $animalPrices[$animal->id]
+                : null;
+
+            $detalle = $price !== null
+                ? 'Venta registrada desde Finanzas. Precio individual: S/ ' . number_format($price, 2) . '.'
+                : 'Venta registrada desde Finanzas.';
+
             $animal->update([
                 'activo' => false,
                 'apta_ordeno' => false,
                 'estado_productivo' => 'descarte',
                 'motivo_baja' => 'venta',
                 'fecha_baja' => $movement->fecha,
-                'detalle_baja' => 'Venta registrada desde Finanzas.',
+                'detalle_baja' => $detalle,
                 'comprador_baja' => $buyer ?: null,
                 'movimiento_venta_id' => $movement->getKey(),
             ]);

@@ -46,8 +46,8 @@
 
                 <div class="flex flex-col justify-center p-6 sm:p-10 lg:p-14">
                     <a href="{{ route('home') }}" class="mb-8 inline-flex w-fit items-center gap-3" aria-label="Volver al inicio">
-                        <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-700 to-green-400 text-white shadow-lg shadow-emerald-700/20">
-                            <x-brand-logo class="h-5 w-5" />
+                        <span class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-emerald-500/40 bg-emerald-950/80 shadow-md overflow-hidden shrink-0">
+                            <x-brand-logo class="h-full w-full" />
                         </span>
                         <span><strong class="block text-base font-extrabold leading-none">{{ $branding->name }}</strong><small class="mt-1 block text-[9px] font-bold uppercase tracking-[.2em] text-emerald-600">{{ $branding->tagline }}</small></span>
                     </a>

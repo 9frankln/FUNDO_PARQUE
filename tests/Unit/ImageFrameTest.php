@@ -11,7 +11,7 @@ class ImageFrameTest extends TestCase
     {
         $this->assertSame(ImageFrame::DEFAULT, ImageFrame::normalize(null));
         $this->assertSame(
-            ['x' => 0.0, 'y' => 100.0, 'zoom' => 2.5],
+            ['x' => 0.0, 'y' => 100.0, 'zoom' => 4.0],
             ImageFrame::normalize(['focus_x' => -12, 'focus_y' => 130, 'zoom' => 8])
         );
         $this->assertSame(
@@ -29,6 +29,6 @@ class ImageFrameTest extends TestCase
             array_keys($rules)
         );
         $this->assertContains('between:0,100', $rules['fotoEncuadre.x']);
-        $this->assertContains('between:1,2.5', $rules['fotoEncuadre.zoom']);
+        $this->assertContains('between:0.3,4', $rules['fotoEncuadre.zoom']);
     }
 }

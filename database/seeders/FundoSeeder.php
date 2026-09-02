@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Fundo;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class FundoSeeder extends Seeder
@@ -22,12 +21,25 @@ class FundoSeeder extends Seeder
             ]
         );
 
-        // Asignar al usuario admin si existe
-        $admin = User::where('email', 'admin@agrofundo.com')->first();
-        if ($admin) {
-            $fundo->usuarios()->syncWithoutDetaching([
-                $admin->id => ['es_administrador' => true],
-            ]);
+        $admin = \App\Models\User::firstOrCreate(
+            ['username' => 'admin'],
+            [
+                'name' => 'ADMINISTRADOR',
+                'email' => 'admin@agrofundo.com',
+                'password' => \Illuminate\Support\Facades\Hash::make('123456789'),
+                'dni' => '00000001',
+                'estado' => 'activo',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        if (! $admin->fundos->contains($fundo->id)) {
+            $admin->fundos()->attach($fundo->id, ['es_administrador' => true]);
+        }
+
+        $adminRole = \App\Models\Role::where('nombre', 'Administrador General')->first();
+        if ($adminRole && ! $admin->roles->contains($adminRole->id)) {
+            $admin->roles()->attach($adminRole->id);
         }
     }
 }

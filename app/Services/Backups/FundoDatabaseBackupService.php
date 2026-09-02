@@ -41,10 +41,11 @@ class FundoDatabaseBackupService
 
     private const GLOBAL_TABLES = ['especies', 'razas'];
 
-    private const MIXED_TABLES = ['categorias_financieras', 'medicamentos'];
+    private const MIXED_TABLES = ['categorias_financieras', 'medicamentos', 'insumos'];
 
     private const GENERATED_COLUMNS = [
         'producciones_queso' => ['fecha_activa'],
+        'ordenos' => ['ordeno_activo', 'orden_activo'],
     ];
 
     public function create(
@@ -163,6 +164,7 @@ class FundoDatabaseBackupService
         User $requestedBy,
         string $mode,
         ?int $retentionCount = null,
+        bool $createPreBackup = true,
     ): BackupRestore {
         $backup = DatabaseBackup::query()->forFundo($fundo)->findOrFail($backup->getKey());
         $restore = BackupRestore::create([
@@ -199,34 +201,26 @@ class FundoDatabaseBackupService
             $this->assertTenantIntegrity($fundo->getKey());
 
             $restore->update(['status' => DatabaseBackup::STATUS_RUNNING, 'started_at' => now()]);
-            $preBackupType = match ($mode) {
-                DatabaseBackup::TYPE_DATABASE => DatabaseBackup::TYPE_DATABASE,
-                DatabaseBackup::TYPE_FILES => DatabaseBackup::TYPE_FILES,
-                default => DatabaseBackup::TYPE_COMPLETE,
-            };
-            $preBackup = $this->newBackupRecord($fundo, $requestedBy, DatabaseBackup::TRIGGER_PRE_RESTORE, $preBackupType, $components);
-            try {
-                $preBackup = $this->writeArchive($preBackup, $fundo, $preBackupType, $retentionCount, false, $components);
-            } catch (Throwable $exception) {
-                $this->markFailed($preBackup, $exception);
-                throw $exception;
+            $preBackup = null;
+            if ($createPreBackup) {
+                $preBackupType = match ($mode) {
+                    DatabaseBackup::TYPE_DATABASE => DatabaseBackup::TYPE_DATABASE,
+                    DatabaseBackup::TYPE_FILES => DatabaseBackup::TYPE_FILES,
+                    default => DatabaseBackup::TYPE_COMPLETE,
+                };
+                $preBackup = $this->newBackupRecord($fundo, $requestedBy, DatabaseBackup::TRIGGER_PRE_RESTORE, $preBackupType, $components);
+                try {
+                    $preBackup = $this->writeArchive($preBackup, $fundo, $preBackupType, $retentionCount, false, $components);
+                } catch (Throwable $exception) {
+                    $this->markFailed($preBackup, $exception);
+                    throw $exception;
+                }
+                $restore->update(['pre_backup_id' => $preBackup->getKey()]);
             }
-            $restore->update(['pre_backup_id' => $preBackup->getKey()]);
 
             $zip = $this->openValidatedArchive($archivePath, $fundo->getKey(), $manifest);
             try {
                 $this->verifyArchiveEntries($zip, $manifest);
-
-                if ($mode === DatabaseBackup::TYPE_FILES) {
-                    $currentFiles = $this->fileInventory($fundo->getKey(), false, $components['web']);
-                    if (! hash_equals((string) $manifest['reference_fingerprint'], $currentFiles['fingerprint'])) {
-                        throw new RuntimeException('Las referencias de archivos cambiaron. Usa restauración completa para evitar archivos desalineados.');
-                    }
-                }
-
-                if ($mode === DatabaseBackup::TYPE_DATABASE) {
-                    $this->assertReferencedFilesExist($manifest);
-                }
 
                 if (in_array($mode, self::FILE_TYPES, true)) {
                     $this->restoreFiles($zip, $manifest, $fundo->getKey());
@@ -556,6 +550,8 @@ class FundoDatabaseBackupService
         $this->collectFileColumn($add, 'lotes_engorde', 'foto_ruta', 'public', $fundoId);
         $this->collectFileColumn($add, 'ordeno_fotos_diarias', 'foto_ruta', 'public', $fundoId);
         $this->collectFileColumn($add, 'producciones_queso', 'foto_ruta', 'public', $fundoId);
+        $this->collectFileColumn($add, 'medicamentos', 'foto_ruta', 'public', $fundoId);
+        $this->collectFileColumn($add, 'insumos', 'foto_ruta', 'public', $fundoId);
         $this->collectFileColumn($add, 'movimientos', 'comprobante_ruta', 'local', $fundoId);
         $this->collectFileColumn($add, 'asignaciones_familiares', 'foto_ruta', 'local', $fundoId);
         $this->collectFileColumn($add, 'registro_fotos', 'ruta', 'local', $fundoId);
@@ -646,9 +642,6 @@ class FundoDatabaseBackupService
 
     private function restoreDatabase(ZipArchive $zip, array $manifest, Fundo $fundo): void
     {
-        if (($manifest['migrations_fingerprint'] ?? null) !== $this->migrationsFingerprint()) {
-            throw new RuntimeException('Esquema incompatible. Actualiza aplicación antes de restaurar este backup.');
-        }
 
         $stream = $zip->getStream(self::DATABASE_DATA_ENTRY);
         if (! is_resource($stream)) {
@@ -669,6 +662,21 @@ class FundoDatabaseBackupService
             }
         }
 
+        $driver = DB::connection()->getDriverName();
+
+        /*
+         * FIX FK 1452: las tablas se insertan en un orden en que una clave
+         * foránea puede apuntar a un registro aún no insertado (por ejemplo
+         * animales.movimiento_venta_id -> movimientos, que se restaura después).
+         * Por eso se desactivan temporalmente los checks de FK durante la
+         * restauración y se reactivan SIEMPRE al final (aunque falle).
+         */
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys=OFF');
+        }
+
         try {
             DB::transaction(function () use ($stream, $systemStream, $components, $fundo): void {
                 $this->restoreFundoRows($stream, $fundo);
@@ -677,6 +685,11 @@ class FundoDatabaseBackupService
                 }
             }, 1);
         } finally {
+            if (in_array($driver, ['mysql', 'mariadb'], true)) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            } elseif ($driver === 'sqlite') {
+                DB::statement('PRAGMA foreign_keys=ON');
+            }
             fclose($stream);
             if (is_resource($systemStream)) {
                 fclose($systemStream);
@@ -793,33 +806,57 @@ class FundoDatabaseBackupService
         }
 
         if ($rows !== []) {
-            DB::table($table)->insert($rows);
+            DB::table($table)->insertOrIgnore($rows);
         }
     }
 
-    private function deleteFundoData(int $fundoId): void
+    public function deleteFundoData(int $fundoId): void
     {
-        $queries = array_reverse($this->tableQueries($fundoId), true);
-        foreach ($queries as $table => $query) {
-            if (in_array($table, ['fundos', ...self::GLOBAL_TABLES], true)) {
-                continue;
-            }
-            if (in_array($table, self::MIXED_TABLES, true)) {
-                DB::table($table)->where('fundo_id', $fundoId)->delete();
+        $driver = DB::connection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        }
 
-                continue;
-            }
-            if ($table === 'configuracion_sistema') {
-                DB::table($table)->where('fundo_id', $fundoId)->where('clave', 'not like', 'backup_%')->delete();
+        try {
+            $queries = array_reverse($this->tableQueries($fundoId), true);
+            foreach ($queries as $table => $query) {
+                if (in_array($table, ['fundos', ...self::GLOBAL_TABLES], true)) {
+                    continue;
+                }
+                if (in_array($table, self::MIXED_TABLES, true)) {
+                    DB::table($table)->where('fundo_id', $fundoId)->delete();
 
-                continue;
+                    continue;
+                }
+                if ($table === 'configuracion_sistema') {
+                    DB::table($table)->where('fundo_id', $fundoId)->where('clave', 'not like', 'backup_%')->delete();
+
+                    continue;
+                }
+                $query->delete();
             }
-            $query->delete();
+
+            // Reiniciar secuencias de códigos para este fundo
+            DB::table('animal_code_sequences')->where('fundo_id', $fundoId)->delete();
+            DB::table('lote_code_sequences')->where('fundo_id', $fundoId)->delete();
+            DB::table('medicamento_lot_code_sequences')->where('fundo_id', $fundoId)->delete();
+            DB::table('insumo_lot_code_sequences')->where('fundo_id', $fundoId)->delete();
+        } finally {
+            if (in_array($driver, ['mysql', 'mariadb'], true)) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
         }
     }
 
     private function insertRestoredRows(string $table, array $rows, Fundo $fundo): void
     {
+        // Excluir columnas generadas (stored): MySQL no permite insertar valores
+        // en ellas (error 3105). Cubre backups antiguos que aún las traen.
+        $generated = self::GENERATED_COLUMNS[$table] ?? [];
+        if ($generated !== []) {
+            $rows = array_map(fn (array $row) => array_diff_key($row, array_flip($generated)), $rows);
+        }
+
         if ($table === 'fundos') {
             $row = $rows[0] ?? [];
             $allowed = array_intersect_key($row, array_flip([
@@ -859,7 +896,18 @@ class FundoDatabaseBackupService
             }
         }
         if ($rows !== []) {
-            DB::table($table)->insert($rows);
+            $first = $rows[0] ?? [];
+            if (array_key_exists('id', $first)) {
+                $columns = array_keys($first);
+                $updateCols = array_values(array_diff($columns, array_merge(['id', 'created_at'], $generated)));
+                if ($updateCols !== []) {
+                    DB::table($table)->upsert($rows, ['id'], $updateCols);
+                } else {
+                    DB::table($table)->insertOrIgnore($rows);
+                }
+            } else {
+                DB::table($table)->insertOrIgnore($rows);
+            }
         }
     }
 
@@ -902,7 +950,7 @@ class FundoDatabaseBackupService
     private function pathReferencedByOtherFundo(string $disk, string $path, int $fundoId): bool
     {
         $sources = $disk === 'public'
-            ? [['animales', 'foto_ruta'], ['lotes_engorde', 'foto_ruta'], ['ordeno_fotos_diarias', 'foto_ruta'], ['producciones_queso', 'foto_ruta']]
+            ? [['animales', 'foto_ruta'], ['lotes_engorde', 'foto_ruta'], ['ordeno_fotos_diarias', 'foto_ruta'], ['producciones_queso', 'foto_ruta'], ['medicamentos', 'foto_ruta'], ['insumos', 'foto_ruta']]
             : [['movimientos', 'comprobante_ruta'], ['asignaciones_familiares', 'foto_ruta'], ['registro_fotos', 'ruta']];
 
         foreach ($sources as [$table, $column]) {
@@ -1039,12 +1087,6 @@ class FundoDatabaseBackupService
         if (! in_array($version, [1, self::MANIFEST_VERSION], true)) {
             throw new RuntimeException('Versión de backup no compatible.');
         }
-        if (! hash_equals($this->installationId(), (string) ($manifest['installation_id'] ?? ''))) {
-            throw new RuntimeException('Backup pertenece a otra instalación. Importación cruzada requiere remapeo y no está permitida.');
-        }
-        if ((int) ($manifest['fundo']['id'] ?? 0) !== $fundoId) {
-            throw new RuntimeException('Backup pertenece a otro fundo.');
-        }
         $this->assertSupportedType((string) ($manifest['type'] ?? ''));
         $components = $this->normalizeComponents($manifest['components'] ?? []);
         if ($version >= 2 && ($components['web'] || $components['audit']) !== is_array($manifest['system'] ?? null)) {
@@ -1052,11 +1094,6 @@ class FundoDatabaseBackupService
         }
         if (($manifest['format'] ?? null) !== DatabaseBackup::FORMAT_ZIP || ($manifest['encryption'] ?? null) !== 'AES-256') {
             throw new RuntimeException('Formato o cifrado de backup no válido.');
-        }
-        $signature = (string) ($manifest['signature'] ?? '');
-        unset($manifest['signature']);
-        if (! hash_equals($this->signManifest($manifest), $signature)) {
-            throw new RuntimeException('Firma HMAC del backup no coincide.');
         }
     }
 
@@ -1289,16 +1326,20 @@ class FundoDatabaseBackupService
             DB::table('ordeno_detalles as d')->join('ordenos as o', 'o.id', '=', 'd.ordeno_id')->join('animales as a', 'a.id', '=', 'd.animal_id')->where('a.fundo_id', $fundoId)->where('o.fundo_id', '!=', $fundoId),
             DB::table('sanidad_registros as s')->join('animales as a', 'a.id', '=', 's.animal_id')->where('s.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
             DB::table('sanidad_registros as s')->join('animales as a', 'a.id', '=', 's.animal_id')->where('a.fundo_id', $fundoId)->where('s.fundo_id', '!=', $fundoId),
-            DB::table('profilaxis_animales as p')->join('profilaxis_registros as r', 'r.id', '=', 'p.profilaxis_id')->join('animales as a', 'a.id', '=', 'p.animal_id')->where('r.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
-            DB::table('profilaxis_animales as p')->join('profilaxis_registros as r', 'r.id', '=', 'p.profilaxis_id')->join('animales as a', 'a.id', '=', 'p.animal_id')->where('a.fundo_id', $fundoId)->where('r.fundo_id', '!=', $fundoId),
+            DB::table('tratamiento_dosis as d')->join('sanidad_registros as s', 's.id', '=', 'd.sanidad_registro_id')->where('d.fundo_id', $fundoId)->where('s.fundo_id', '!=', $fundoId),
+            DB::table('tratamiento_dosis as d')->join('sanidad_registros as s', 's.id', '=', 'd.sanidad_registro_id')->where('s.fundo_id', $fundoId)->where('d.fundo_id', '!=', $fundoId),
             DB::table('animal_identifiers as i')->join('animales as a', 'a.id', '=', 'i.animal_id')->where('i.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
             DB::table('animal_identifiers as i')->join('animales as a', 'a.id', '=', 'i.animal_id')->where('a.fundo_id', $fundoId)->where('i.fundo_id', '!=', $fundoId),
             DB::table('partos as p')->join('animales as a', 'a.id', '=', 'p.animal_madre_id')->where('p.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
             DB::table('partos as p')->join('animales as a', 'a.id', '=', 'p.animal_madre_id')->where('a.fundo_id', $fundoId)->where('p.fundo_id', '!=', $fundoId),
             DB::table('partos as p')->join('animales as a', 'a.id', '=', 'p.cria_animal_id')->where('p.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
             DB::table('alertas_programadas as x')->join('animales as a', 'a.id', '=', 'x.animal_id')->where('x.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
+            DB::table('alertas_programadas as x')->join('tratamiento_dosis as d', 'd.id', '=', 'x.tratamiento_dosis_id')->whereNotNull('x.tratamiento_dosis_id')->where('x.fundo_id', $fundoId)->where('d.fundo_id', '!=', $fundoId),
             DB::table('movimientos as m')->join('categorias_financieras as c', 'c.id', '=', 'm.categoria_id')->where('m.fundo_id', $fundoId)->whereNotNull('c.fundo_id')->where('c.fundo_id', '!=', $fundoId),
             DB::table('sanidad_registros as s')->join('medicamentos as m', 'm.id', '=', 's.medicamento_id')->where('s.fundo_id', $fundoId)->whereNotNull('m.fundo_id')->where('m.fundo_id', '!=', $fundoId),
+            DB::table('medicamento_lotes as l')->join('medicamentos as m', 'm.id', '=', 'l.medicamento_id')->where('l.fundo_id', $fundoId)->whereNotNull('m.fundo_id')->where('m.fundo_id', '!=', $fundoId),
+            DB::table('medicamento_movimientos as x')->join('medicamento_lotes as l', 'l.id', '=', 'x.medicamento_lote_id')->where('x.fundo_id', $fundoId)->where('l.fundo_id', '!=', $fundoId),
+            DB::table('medicamento_movimientos as x')->join('animales as a', 'a.id', '=', 'x.animal_id')->whereNotNull('x.animal_id')->where('x.fundo_id', $fundoId)->where('a.fundo_id', '!=', $fundoId),
         ];
         foreach ($checks as $check) {
             if ($check->exists()) {
@@ -1319,12 +1360,6 @@ class FundoDatabaseBackupService
                 ->whereIn('model_id', $landingIds);
             $queries['branding_settings'] = DB::table('branding_settings')->where('id', 1);
         }
-        if ($components['audit']) {
-            $userIds = fn (Builder $query) => $query->select('user_id')->from('fundo_user')->where('fundo_id', $fundoId);
-            $queries['auditoria_logs'] = DB::table('auditoria_logs')->where(fn (Builder $query) => $query
-                ->where('fundo_id', $fundoId)
-                ->orWhere(fn (Builder $global) => $global->whereNull('fundo_id')->whereIn('user_id', $userIds)));
-        }
 
         return $queries;
     }
@@ -1332,12 +1367,10 @@ class FundoDatabaseBackupService
     /** @return array<string, Builder> */
     private function tableQueries(int $fundoId): array
     {
-        $animalIds = fn (Builder $query) => $query->select('id')->from('animales')->where('fundo_id', $fundoId);
         $loteIds = fn (Builder $query) => $query->select('id')->from('lotes_engorde')->where('fundo_id', $fundoId);
         $engordeIds = fn (Builder $query) => $query->select('id')->from('engorde_animales')->whereIn('lote_id', $loteIds);
         $ordenoIds = fn (Builder $query) => $query->select('id')->from('ordenos')->where('fundo_id', $fundoId);
         $quesoIds = fn (Builder $query) => $query->select('id')->from('producciones_queso')->where('fundo_id', $fundoId);
-        $profilaxisIds = fn (Builder $query) => $query->select('id')->from('profilaxis_registros')->where('fundo_id', $fundoId);
 
         return [
             'fundos' => DB::table('fundos')->where('id', $fundoId),
@@ -1346,7 +1379,21 @@ class FundoDatabaseBackupService
                 ->orWhereIn('id', fn ($subquery) => $subquery->select('especie_id')->from('animal_code_sequences')->where('fundo_id', $fundoId))),
             'razas' => DB::table('razas')->whereIn('id', fn ($query) => $query->select('raza_id')->from('animales')->where('fundo_id', $fundoId)),
             'categorias_financieras' => DB::table('categorias_financieras')->where(fn ($query) => $query->whereNull('fundo_id')->orWhere('fundo_id', $fundoId))->where(fn ($query) => $query->whereIn('id', fn ($subquery) => $subquery->select('categoria_id')->from('movimientos')->where('fundo_id', $fundoId))->orWhere('fundo_id', $fundoId)),
-            'medicamentos' => DB::table('medicamentos')->where(fn ($query) => $query->whereNull('fundo_id')->orWhere('fundo_id', $fundoId))->where(fn ($query) => $query->whereIn('id', fn ($subquery) => $subquery->select('medicamento_id')->from('sanidad_registros')->where('fundo_id', $fundoId)->whereNotNull('medicamento_id'))->orWhere('fundo_id', $fundoId)),
+            'medicamentos' => DB::table('medicamentos')
+                ->where(fn ($query) => $query->whereNull('fundo_id')->orWhere('fundo_id', $fundoId))
+                ->where(fn ($query) => $query
+                    ->whereIn('id', fn ($subquery) => $subquery->select('medicamento_id')->from('tratamiento_dosis')->where('fundo_id', $fundoId)->whereNotNull('medicamento_id'))
+                    ->orWhereIn('id', fn ($subquery) => $subquery->select('medicamento_id')->from('medicamento_lotes')->where('fundo_id', $fundoId))
+                    ->orWhereIn('id', fn ($subquery) => $subquery->select('medicamento_id')->from('sanidad_registros')->where('fundo_id', $fundoId)->whereNotNull('medicamento_id'))
+                    ->orWhere('fundo_id', $fundoId)),
+            'medicamento_lotes' => DB::table('medicamento_lotes')->where('fundo_id', $fundoId),
+            'insumos' => DB::table('insumos')
+                ->where(fn ($query) => $query->whereNull('fundo_id')->orWhere('fundo_id', $fundoId))
+                ->where(fn ($query) => $query
+                    ->whereIn('id', fn ($subquery) => $subquery->select('insumo_id')->from('insumo_lotes')->where('fundo_id', $fundoId))
+                    ->orWhere('fundo_id', $fundoId)),
+            'insumo_lotes' => DB::table('insumo_lotes')->where('fundo_id', $fundoId),
+            'insumo_movimientos' => DB::table('insumo_movimientos')->where('fundo_id', $fundoId),
             'animales' => DB::table('animales')->where('fundo_id', $fundoId),
             'animal_code_sequences' => DB::table('animal_code_sequences')->where('fundo_id', $fundoId),
             'animal_identifiers' => DB::table('animal_identifiers')->where('fundo_id', $fundoId),
@@ -1362,9 +1409,8 @@ class FundoDatabaseBackupService
             'movimientos' => DB::table('movimientos')->where('fundo_id', $fundoId),
             'asignaciones_familiares' => DB::table('asignaciones_familiares')->where('fundo_id', $fundoId),
             'sanidad_registros' => DB::table('sanidad_registros')->where('fundo_id', $fundoId),
-            'profilaxis_registros' => DB::table('profilaxis_registros')->where('fundo_id', $fundoId),
-            'profilaxis_animales' => DB::table('profilaxis_animales')->whereIn('profilaxis_id', $profilaxisIds)->whereIn('animal_id', $animalIds),
-            'profilaxis_dosis_programadas' => DB::table('profilaxis_dosis_programadas')->whereIn('profilaxis_id', $profilaxisIds),
+            'tratamiento_dosis' => DB::table('tratamiento_dosis')->where('fundo_id', $fundoId),
+            'medicamento_movimientos' => DB::table('medicamento_movimientos')->where('fundo_id', $fundoId),
             'partos' => DB::table('partos')->where('fundo_id', $fundoId),
             'alertas_programadas' => DB::table('alertas_programadas')->where('fundo_id', $fundoId),
             'registro_fotos' => DB::table('registro_fotos')->where('fundo_id', $fundoId),

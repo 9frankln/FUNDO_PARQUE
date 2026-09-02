@@ -251,6 +251,8 @@ class AnimalPurchaseAndEngordeTest extends TestCase
         $latest = Animal::where('nombre', 'SEGUNDO')->firstOrFail();
         $first = Animal::where('nombre', 'PRIMERO')->firstOrFail();
         Livewire::test(AnimalIndex::class)
+            ->set('sortBy', 'id')
+            ->set('sortDir', 'asc')
             ->assertSet('recentRecord.id', $latest->id)
             ->assertSet('recentRecord.action', 'created')
             ->assertViewHas('animales', fn ($animals) => $animals->first()->is($latest))
@@ -266,6 +268,349 @@ class AnimalPurchaseAndEngordeTest extends TestCase
             ->assertSet('recentRecord.id', $latest->id)
             ->assertSet('recentRecord.action', 'updated')
             ->assertViewHas('animales', fn ($animals) => $animals->first()->is($latest));
+    }
+
+    public function test_can_add_animal_with_custom_fecha_ingreso_and_edit_it(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        [$species, $breed] = $this->animalCatalog('Bovino', 'BOV');
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        $lote = LoteEngorde::create([
+            'fundo_id' => $fundo->id,
+            'codigo' => 'LOT26-001',
+            'nombre' => 'Lote Test',
+            'fecha_inicio' => today()->subDays(10),
+            'estado' => 'activo',
+        ]);
+
+        $animal = Animal::create([
+            'fundo_id' => $fundo->id,
+            'especie_id' => $species->id,
+            'raza_id' => $breed->id,
+            'arete' => 'BOV26-001',
+            'nombre' => 'Toro Bravo',
+            'genero' => 'macho',
+            'peso' => 450,
+            'tipo_alta' => 'compra',
+            'fecha_alta' => today()->subDays(30),
+            'activo' => true,
+        ]);
+
+        $customDate = today()->subDays(5)->format('Y-m-d');
+
+        Livewire::test(EngordeShow::class, ['id' => $lote->id])
+            ->call('openAddAnimalModal')
+            ->call('toggleAnimalSelection', $animal->id)
+            ->set("pesosIniciales.{$animal->id}", 460)
+            ->set("fechasIngreso.{$animal->id}", $customDate)
+            ->call('agregarAnimales')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $this->assertDatabaseHas('engorde_animales', [
+            'lote_id' => $lote->id,
+            'animal_id' => $animal->id,
+            'peso_inicial' => 460,
+        ]);
+
+        $ea = \App\Models\EngordeAnimal::where('lote_id', $lote->id)->where('animal_id', $animal->id)->firstOrFail();
+        $this->assertEquals($customDate, $ea->fecha_ingreso->format('Y-m-d'));
+        $newDate = today()->subDays(8)->format('Y-m-d');
+
+        Livewire::test(EngordeShow::class, ['id' => $lote->id])
+            ->call('openEditIngresoModal', $ea->id)
+            ->assertSet('editEngordeAnimalId', $ea->id)
+            ->set('editFechaIngreso', $newDate)
+            ->set('editPesoInicial', 475)
+            ->set('editObservaciones', 'Fecha corregida')
+            ->call('actualizarIngreso')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $ea->refresh();
+        $this->assertEquals($newDate, $ea->fecha_ingreso->format('Y-m-d'));
+        $this->assertEquals(475, $ea->peso_inicial);
+        $this->assertEquals('Fecha corregida', $ea->observaciones);
+    }
+
+    public function test_can_add_animal_when_lot_date_is_before_animal_fecha_alta_and_syncs_dates(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        [$species, $breed] = $this->animalCatalog('Bovino', 'BOV');
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        $lote = LoteEngorde::create([
+            'fundo_id' => $fundo->id,
+            'codigo' => 'LOT26-099',
+            'nombre' => 'Lote Histórico',
+            'fecha_inicio' => today()->subDays(5),
+            'fecha_fin' => today(),
+            'estado' => 'activo',
+        ]);
+
+        // Animal registrado hoy (fecha_alta = hoy) pero entra al lote hace 2 días
+        $animal = Animal::create([
+            'fundo_id' => $fundo->id,
+            'especie_id' => $species->id,
+            'raza_id' => $breed->id,
+            'arete' => 'BOV26-099',
+            'nombre' => 'Estrella Test',
+            'genero' => 'hembra',
+            'peso' => 380,
+            'tipo_alta' => 'compra',
+            'fecha_alta' => today(),
+            'activo' => true,
+        ]);
+
+        $fechaIngresoLote = today()->subDays(2)->format('Y-m-d');
+
+        Livewire::test(EngordeShow::class, ['id' => $lote->id])
+            ->call('openAddAnimalModal')
+            ->call('toggleAnimalSelection', $animal->id)
+            ->set("pesosIniciales.{$animal->id}", 380)
+            ->set("fechasIngreso.{$animal->id}", $fechaIngresoLote)
+            ->call('agregarAnimales')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $this->assertDatabaseHas('engorde_animales', [
+            'lote_id' => $lote->id,
+            'animal_id' => $animal->id,
+            'fecha_ingreso' => $fechaIngresoLote,
+        ]);
+
+        $animal->refresh();
+        $this->assertEquals($fechaIngresoLote, $animal->fecha_alta->format('Y-m-d'));
+    }
+
+    public function test_can_liquidate_and_sell_engorde_lot_integrated_with_finances(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        [$species, $breed] = $this->animalCatalog('Bovino', 'BOV');
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        $lote = LoteEngorde::create([
+            'fundo_id' => $fundo->id,
+            'codigo' => 'LOT26-001',
+            'nombre' => 'Lote Test Venta',
+            'fecha_inicio' => today()->subDays(20),
+            'estado' => 'activo',
+        ]);
+
+        $animal1 = Animal::create([
+            'fundo_id' => $fundo->id,
+            'especie_id' => $species->id,
+            'raza_id' => $breed->id,
+            'arete' => 'BOV26-001',
+            'nombre' => 'Toro 1',
+            'genero' => 'macho',
+            'peso' => 500,
+            'tipo_alta' => 'compra',
+            'fecha_alta' => today()->subDays(30),
+            'activo' => true,
+        ]);
+
+        $animal2 = Animal::create([
+            'fundo_id' => $fundo->id,
+            'especie_id' => $species->id,
+            'raza_id' => $breed->id,
+            'arete' => 'BOV26-002',
+            'nombre' => 'Toro 2',
+            'genero' => 'macho',
+            'peso' => 520,
+            'tipo_alta' => 'compra',
+            'fecha_alta' => today()->subDays(30),
+            'activo' => true,
+        ]);
+
+        $ea1 = \App\Models\EngordeAnimal::create([
+            'lote_id' => $lote->id,
+            'animal_id' => $animal1->id,
+            'peso_inicial' => 450,
+            'peso_actual' => 500,
+            'fecha_ingreso' => today()->subDays(20),
+            'estado' => 'engorde_activo',
+        ]);
+
+        $ea2 = \App\Models\EngordeAnimal::create([
+            'lote_id' => $lote->id,
+            'animal_id' => $animal2->id,
+            'peso_inicial' => 460,
+            'peso_actual' => 520,
+            'fecha_ingreso' => today()->subDays(20),
+            'estado' => 'engorde_activo',
+        ]);
+
+        $saleDate = today()->format('Y-m-d');
+
+        Livewire::test(EngordeShow::class, ['id' => $lote->id])
+            ->call('openVenderLoteModal')
+            ->assertSet('showVenderLoteModal', true)
+            ->set('fechaVenta', $saleDate)
+            ->set('compradorVenta', 'Frigorifico Arequipa SAC')
+            ->set('montoVenta', '16500.00')
+            ->set('observacionesVenta', 'Venta total por lote')
+            ->set('animalesAVender', [$animal1->id => true, $animal2->id => true])
+            ->call('liquidarVentaLote')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        // 1. Movimiento financiero creado en Finanzas
+        $this->assertDatabaseHas('movimientos', [
+            'fundo_id' => $fundo->id,
+            'tipo' => 'ingreso',
+            'monto' => 16500.00,
+            'beneficiario' => 'FRIGORIFICO AREQUIPA SAC',
+        ]);
+
+        $movimiento = \App\Models\Movimiento::where('fundo_id', $fundo->id)->where('tipo', 'ingreso')->firstOrFail();
+
+        // 2. Animales dados de baja por venta
+        $animal1->refresh();
+        $animal2->refresh();
+        $this->assertFalse($animal1->activo);
+        $this->assertSame('venta', $animal1->motivo_baja);
+        $this->assertSame($movimiento->id, $animal1->movimiento_venta_id);
+
+        $this->assertFalse($animal2->activo);
+        $this->assertSame('venta', $animal2->motivo_baja);
+
+        // 3. EngordeAnimal actualizados a vendido
+        $ea1->refresh();
+        $ea2->refresh();
+        $this->assertSame('vendido', $ea1->estado);
+        $this->assertSame('vendido', $ea2->estado);
+
+        // 4. Lote cerrado automáticamente
+        $lote->refresh();
+        $this->assertSame('cerrado', $lote->estado);
+        $this->assertEquals($saleDate, $lote->fecha_fin->format('Y-m-d'));
+    }
+
+    public function test_can_manually_close_and_reopen_engorde_lot(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        $lote = LoteEngorde::create([
+            'fundo_id' => $fundo->id,
+            'codigo' => 'LOT26-002',
+            'nombre' => 'Lote Cierre Manual',
+            'fecha_inicio' => today()->subDays(15),
+            'estado' => 'activo',
+        ]);
+
+        $closeDate = today()->subDays(2)->format('Y-m-d');
+
+        Livewire::test(EngordeShow::class, ['id' => $lote->id])
+            ->call('openCerrarLoteModal')
+            ->assertSet('showCerrarLoteModal', true)
+            ->set('fechaCierreLote', $closeDate)
+            ->set('observacionesCierreLote', 'Cierre anticipado')
+            ->call('finalizarLote')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $lote->refresh();
+        $this->assertSame('cerrado', $lote->estado);
+        $this->assertEquals($closeDate, $lote->fecha_fin->format('Y-m-d'));
+
+        // Reabrir lote
+        Livewire::test(EngordeShow::class, ['id' => $lote->id])
+            ->call('reabrirLote')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $lote->refresh();
+        $this->assertSame('activo', $lote->estado);
+        $this->assertNull($lote->fecha_fin);
+    }
+
+    public function test_can_sell_and_close_lote_from_index_view(): void
+    {
+        [$user, $fundo] = $this->administratorWithFundo();
+        [$species, $breed] = $this->animalCatalog('Bovino', 'BOV');
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+
+        $lote = LoteEngorde::create([
+            'fundo_id' => $fundo->id,
+            'codigo' => 'LOT26-003',
+            'nombre' => 'Lote Venta Index',
+            'fecha_inicio' => today()->subDays(10),
+            'estado' => 'activo',
+        ]);
+
+        $animal = Animal::create([
+            'fundo_id' => $fundo->id,
+            'especie_id' => $species->id,
+            'raza_id' => $breed->id,
+            'arete' => 'BOV26-003',
+            'nombre' => 'Toro Index',
+            'genero' => 'macho',
+            'peso' => 480,
+            'tipo_alta' => 'compra',
+            'fecha_alta' => today()->subDays(30),
+            'activo' => true,
+        ]);
+
+        $ea = \App\Models\EngordeAnimal::create([
+            'lote_id' => $lote->id,
+            'animal_id' => $animal->id,
+            'peso_inicial' => 450,
+            'peso_actual' => 480,
+            'fecha_ingreso' => today()->subDays(10),
+            'estado' => 'engorde_activo',
+        ]);
+
+        $saleDate = today()->format('Y-m-d');
+
+        // Test sale from Index
+        \Livewire\Livewire::test(\App\Livewire\Engorde\Index::class)
+            ->call('openVenderLoteModal', $lote->id)
+            ->assertSet('showVenderLoteModal', true)
+            ->set('fechaVenta', $saleDate)
+            ->set('compradorVenta', 'Cliente Index SAC')
+            ->set('montoVenta', '9500.00')
+            ->set('animalesAVender', [$animal->id => true])
+            ->call('liquidarVentaLote')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $this->assertDatabaseHas('movimientos', [
+            'fundo_id' => $fundo->id,
+            'tipo' => 'ingreso',
+            'monto' => 9500.00,
+            'beneficiario' => 'CLIENTE INDEX SAC',
+        ]);
+
+        $lote->refresh();
+        $this->assertSame('cerrado', $lote->estado);
+
+        $animal->refresh();
+        $this->assertFalse($animal->activo);
+        $this->assertSame('venta', $animal->motivo_baja);
+
+        // Reopen from Index
+        \Livewire\Livewire::test(\App\Livewire\Engorde\Index::class)
+            ->call('reabrirLote', $lote->id)
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $lote->refresh();
+        $this->assertSame('activo', $lote->estado);
+
+        // Close from Index
+        \Livewire\Livewire::test(\App\Livewire\Engorde\Index::class)
+            ->call('openCerrarLoteModal', $lote->id)
+            ->assertSet('showCerrarLoteModal', true)
+            ->set('fechaCierreLote', $saleDate)
+            ->call('finalizarLote')
+            ->assertHasNoErrors()
+            ->assertDispatched('swal:toast');
+
+        $lote->refresh();
+        $this->assertSame('cerrado', $lote->estado);
     }
 
     private function administratorWithFundo(): array

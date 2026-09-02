@@ -19,9 +19,9 @@
             </header>
 
             <div class="agro-dialog__scroll p-3 sm:p-5">
-                <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-slate-950">
+                <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-zinc-950">
                     <video x-ref="cameraVideo" x-show="!cameraError" autoplay muted playsinline class="h-full w-full object-contain"></video>
-                    <div x-show="cameraStarting" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 text-sm font-bold text-white">
+                    <div x-show="cameraStarting" class="absolute inset-0 flex items-center justify-center bg-zinc-950/80 text-sm font-bold text-white">
                         Iniciando cámara...
                     </div>
                     <div x-show="cameraError" class="max-w-sm space-y-3 px-5 text-center text-sm font-semibold leading-6 text-rose-200">
@@ -42,3 +42,4 @@
         </section>
     </div>
 </template>
+

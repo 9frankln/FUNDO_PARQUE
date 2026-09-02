@@ -3,6 +3,7 @@
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\EnsureActiveAccountSession;
 use App\Http\Middleware\EnsureFundoSelected;
+use App\Http\Middleware\ProcessScheduledSessionTasks;
 use App\Http\Middleware\RecordActivity;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -18,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('home', ['login' => 1]));
-        $middleware->web(append: [EnsureActiveAccountSession::class, SecurityHeaders::class]);
+        $middleware->web(append: [EnsureActiveAccountSession::class, SecurityHeaders::class, ProcessScheduledSessionTasks::class]);
 
         $middleware->alias([
             'fundo' => EnsureFundoSelected::class,

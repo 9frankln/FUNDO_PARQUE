@@ -29,6 +29,8 @@ class Form extends Component
 
     public $fecha = '';
 
+    public int|float|string $litrosLeche = '';
+
     public array $presentaciones = [];
 
     public $foto;
@@ -65,6 +67,7 @@ class Form extends Component
                 ->findOrFail($id);
 
             $this->fecha = $prod->fecha->format('Y-m-d');
+            $this->litrosLeche = $prod->litros_leche_usados !== null ? (string) $prod->litros_leche_usados : '';
             $this->fotoRuta = $prod->foto_ruta;
             $this->fotoEncuadre = ImageFrame::normalize($prod->foto_encuadre);
             $this->observaciones = $prod->observaciones;
@@ -176,6 +179,7 @@ class Form extends Component
                         ->whereNull('deleted_at'))
                     ->ignore($production?->id),
             ],
+            'litrosLeche' => ['nullable', 'numeric', 'min:0.01', 'max:999999.99'],
             'foto' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048|dimensions:max_width=6000,max_height=6000',
             ...ImageFrame::rules('fotoEncuadre'),
             'observaciones' => 'nullable|string|max:5000',
@@ -195,6 +199,8 @@ class Form extends Component
         }
 
         $this->validate($rules, [
+            'litrosLeche.numeric' => 'Ingresa un volumen de leche válido.',
+            'litrosLeche.min' => 'El volumen de leche debe ser mayor a 0.',
             'presentaciones.required' => 'Agrega al menos una presentación de queso.',
             'presentaciones.min' => 'Agrega al menos una presentación de queso.',
             'presentaciones.*.peso_gramos.distinct' => 'No repitas la misma presentación.',
@@ -221,6 +227,7 @@ class Form extends Component
                     'fecha' => $this->fecha,
                     'unidades' => $totals['unidades'],
                     'peso_total_kg' => $totals['gramos'] / 1000,
+                    'litros_leche_usados' => $this->litrosLeche !== '' ? (float) $this->litrosLeche : null,
                     ...($photoPath === null
                         ? ['foto_encuadre' => null]
                         : (($newPhoto || $this->fotoEncuadreChanged) ? ['foto_encuadre' => $fotoEncuadre] : [])),
@@ -257,10 +264,14 @@ class Form extends Component
             Storage::disk('public')->delete($previousPhoto);
         }
 
-        session()->flash('success', $this->isEdit ? 'Registro de producción de queso actualizado.' : 'Registro de producción de queso creado.');
+        session()->flash('swal', [
+            'icon' => 'success',
+            'title' => $this->isEdit ? '¡Actualizado!' : '¡Registrado!',
+            'text' => $this->isEdit ? 'Registro de producción de queso actualizado.' : 'Registro de producción de queso creado.',
+        ]);
         $this->publishRecentRecord('queso.producciones', $production);
 
-        return redirect()->route('queso.index');
+        return $this->redirectRoute('queso.index', navigate: true);
     }
 
     public function render()

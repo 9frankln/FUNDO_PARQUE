@@ -49,7 +49,7 @@ class AuditLogger
     public function recordModel(Model $model, string $event, array $before = [], array $after = []): AuditoriaLog
     {
         $module = strtolower(class_basename($model));
-        $fundoId = $model->getAttribute('fundo_id') ?? session('fundo_id');
+        $fundoId = array_key_exists('fundo_id', $model->getAttributes()) ? $model->getAttributes()['fundo_id'] : (session('fundo_id') ? (int) session('fundo_id') : null);
 
         return $this->record(
             event: 'registro.'.$event,

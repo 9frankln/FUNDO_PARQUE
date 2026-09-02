@@ -12,7 +12,6 @@ use App\Models\OrdenoDetalle;
 use App\Models\Parto;
 use App\Models\PesajeEngorde;
 use App\Models\ProduccionQueso;
-use App\Models\ProfilaxisRegistro;
 use App\Models\SanidadRegistro;
 use App\Models\User;
 use Tests\TestCase;
@@ -22,8 +21,8 @@ class UppercasePersistenceTest extends TestCase
     public function test_suite_uses_isolated_in_memory_database(): void
     {
         $this->assertTrue(app()->environment('testing'));
-        $this->assertSame('sqlite', config('database.default'));
-        $this->assertSame(':memory:', config('database.connections.sqlite.database'));
+        $this->assertSame('mysql', config('database.default'));
+        $this->assertSame('fundo_parque_testing', config('database.connections.mysql.database'));
     }
 
     public function test_business_text_fields_are_normalized_to_uppercase(): void
@@ -39,7 +38,6 @@ class UppercasePersistenceTest extends TestCase
             ProduccionQueso::class => ['observaciones'],
             Movimiento::class => ['descripcion'],
             AsignacionFamiliar::class => ['beneficiario', 'descripcion'],
-            ProfilaxisRegistro::class => ['proposito', 'producto_marca', 'dosis', 'responsable', 'observaciones'],
             Parto::class => ['observaciones'],
         ];
 
@@ -74,9 +72,15 @@ class UppercasePersistenceTest extends TestCase
         $sanidad->sintomas_diagnostico = 'FIEBRE ALTA CON TOS';
         $sanidad->tratamiento = 'ANTIBIÓTICO ORAL';
         $sanidad->dosis_via = '5 ML VÍA ORAL';
+        $sanidad->producto_marca = 'IVERMECTINA 1%';
+        $sanidad->proposito = 'CONTROL ANUAL';
+        $sanidad->responsable = 'DR. FRANKI';
 
         $this->assertSame('fiebre alta con tos', $sanidad->sintomas_diagnostico);
         $this->assertSame('antibiótico oral', $sanidad->tratamiento);
         $this->assertSame('5 ml vía oral', $sanidad->dosis_via);
+        $this->assertSame('ivermectina 1%', $sanidad->producto_marca);
+        $this->assertSame('control anual', $sanidad->proposito);
+        $this->assertSame('dr. franki', $sanidad->responsable);
     }
 }

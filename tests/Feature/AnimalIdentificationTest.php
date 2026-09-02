@@ -13,6 +13,7 @@ use App\Models\Raza;
 use App\Models\User;
 use App\Support\ImageFrame;
 use Carbon\CarbonImmutable;
+use Database\Seeders\DemoDataSeeder;
 use Database\Seeders\DummyDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -315,7 +316,7 @@ class AnimalIdentificationTest extends TestCase
 
     public function test_demo_seed_uses_only_generated_codes_and_is_idempotent(): void
     {
-        $this->seed();
+        $this->seed(DemoDataSeeder::class);
 
         $animals = Animal::all();
         $this->assertCount(30, $animals);

@@ -6,6 +6,7 @@ use App\Models\Fundo;
 use App\Models\ProduccionQueso;
 use App\Models\ProduccionQuesoPresentacion;
 use App\Traits\AuthorizesPermissions;
+use App\Traits\HasPdfPreviewModal;
 use App\Traits\HasRecentRecord;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
@@ -19,11 +20,11 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use AuthorizesPermissions, HasRecentRecord, WithPagination;
+    use AuthorizesPermissions, HasPdfPreviewModal, HasRecentRecord, WithPagination;
 
-    private const PDF_MAX_ROWS = 1000;
+    public const PDF_MAX_ROWS = 1000;
 
-    private const REPORT_SECTIONS = [
+    public const REPORT_SECTIONS = [
         'summary' => ['label' => 'Resumen productivo', 'description' => 'Indicadores, periodo y volumen elaborado'],
         'daily' => ['label' => 'Elaboraciones registradas', 'description' => 'Detalle de cada jornada de producción'],
         'weekly' => ['label' => 'Consolidado semanal', 'description' => 'Totales y promedios agrupados por semana'],
@@ -31,7 +32,7 @@ class Index extends Component
         'annual' => ['label' => 'Consolidado anual', 'description' => 'Totales comparativos por año'],
     ];
 
-    private const REPORT_COLUMNS = [
+    public const REPORT_COLUMNS = [
         'summary' => [
             'period' => 'Periodo cubierto',
             'records' => 'Elaboraciones registradas',
@@ -84,6 +85,12 @@ class Index extends Component
     public $search = '';
 
     public $perPage = 10;
+
+    public $sortBy = 'id';
+
+    public $sortDir = 'desc';
+
+    private const SORTABLE_COLUMNS = ['id', 'fecha', 'litros_leche_usados', 'peso_total_kg', 'unidades'];
 
     public $tab = 'diario'; // diario, semanal
 
@@ -322,7 +329,13 @@ class Index extends Component
             .$annualSummaries->count().' años consolidados.';
         $sectionOptions = self::REPORT_SECTIONS;
         $columnOptions = self::REPORT_COLUMNS;
-        $this->showReportModal = false;
+        // Solo cerrar el modal de opciones la PRIMERA vez (no al regenerar desde preview).
+        if ($this->exportStep !== 'preview') {
+            $this->showReportModal = false;
+        }
+
+        $includeSignatures = $this->pdfIncludeSignatures;
+        $scale = $this->pdfScale;
 
         $pdf = Pdf::loadView('pdf.queso', compact(
             'productions',
@@ -340,13 +353,16 @@ class Index extends Component
             'filterSummary',
             'reportSummary',
             'sectionOptions',
-            'columnOptions'
+            'columnOptions',
+            'includeSignatures',
+            'scale'
         ))->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(
-            fn () => print ($pdf->output()),
+        return $this->setPdfPreview(
+            $pdf,
             'reporte_queso_'.now()->format('Ymd_His').'.pdf',
-            ['Content-Type' => 'application/pdf']
+            'Producción y Transformación de Queso',
+            $productions->count()
         );
     }
 
@@ -383,14 +399,33 @@ class Index extends Component
         }
     }
 
+    public function sort(string $column): void
+    {
+        if (! in_array($column, self::SORTABLE_COLUMNS, true)) {
+            return;
+        }
+
+        if ($this->sortBy === $column) {
+            $this->sortDir = $this->sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortBy = $column;
+            $this->sortDir = in_array($column, ['id', 'fecha', 'peso_total_kg', 'unidades', 'litros_leche_usados'], true) ? 'desc' : 'asc';
+        }
+
+        $this->resetPage();
+    }
+
     public function render()
     {
         $fundoId = (int) session('fundo_id');
+        $sortBy = in_array($this->sortBy, self::SORTABLE_COLUMNS, true) ? $this->sortBy : 'id';
+        $sortDir = $this->sortDir === 'asc' ? 'asc' : 'desc';
 
         // Query diario
         $produccionesDiarias = $this->filteredProductionsQuery($fundoId)
             ->with('presentaciones')
-            ->orderByDesc('id')
+            ->orderBy($sortBy, $sortDir)
+            ->orderBy('id', $sortDir)
             ->paginate($this->perPage);
 
         $produccionesSemanales = collect();

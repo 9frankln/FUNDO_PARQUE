@@ -85,15 +85,17 @@ class PublicLandingController extends Controller
             $category = $forcedCategory ?? $block->section;
             $label = LandingBlock::sectionDefinitions()[$category]['label'] ?? ucfirst($category);
 
-            return $block->media->map(fn (Media $media) => [
-                'id' => (string) $media->id,
-                'full' => $media->hasGeneratedConversion('optimized') ? $media->getUrl('optimized') : $media->getUrl(),
-                'thumb' => $media->hasGeneratedConversion('thumb') ? $media->getUrl('thumb') : $media->getUrl(),
-                'category' => $category,
-                'category_label' => $label,
-                'caption' => $media->getCustomProperty('caption') ?: $label,
-                ...LandingBlock::mediaFrame($media),
-            ]);
+            return $block->media
+                ->sortByDesc(fn (Media $media) => (bool) $media->getCustomProperty('portada', false))
+                ->map(fn (Media $media) => [
+                    'id' => (string) $media->id,
+                    'full' => $media->hasGeneratedConversion('optimized') ? $media->getUrl('optimized') : $media->getUrl(),
+                    'thumb' => $media->hasGeneratedConversion('thumb') ? $media->getUrl('thumb') : $media->getUrl(),
+                    'category' => $category,
+                    'category_label' => $label,
+                    'caption' => $media->getCustomProperty('caption') ?: $label,
+                    ...LandingBlock::mediaFrame($media),
+                ]);
         })->values();
     }
 }

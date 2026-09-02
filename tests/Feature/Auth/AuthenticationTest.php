@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use App\Models\UserSession;
+use App\Services\Security\UserSessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
@@ -52,7 +53,7 @@ class AuthenticationTest extends TestCase
     public function test_user_can_close_active_sessions_and_recover_access_from_login(): void
     {
         $user = User::factory()->create(['max_active_sessions' => 1]);
-        app(\App\Services\Security\UserSessionService::class)->claim($user, 'existing-device');
+        app(UserSessionService::class)->claim($user, 'existing-device');
 
         $component = Volt::test('welcome.login-modal')
             ->set('form.email', $user->email)
@@ -126,7 +127,7 @@ class AuthenticationTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSeeVolt('layout.navigation');
+            ->assertSee('Dashboard');
     }
 
     public function test_guests_are_redirected_to_the_home_login_modal(): void
@@ -141,12 +142,9 @@ class AuthenticationTest extends TestCase
 
         $this->actingAs($user);
 
-        $component = Volt::test('layout.navigation');
+        $response = $this->post(route('logout'));
 
-        $component->call('logout');
-
-        $component
-            ->assertHasNoErrors()
+        $response
             ->assertRedirect('/');
 
         $this->assertGuest();

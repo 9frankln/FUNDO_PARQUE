@@ -1,4 +1,4 @@
-@props(['value', 'label' => null, 'tone' => null, 'dot' => true])
+﻿@props(['value', 'label' => null, 'tone' => null, 'dot' => true])
 
 @php
     $normalized = strtolower((string) $value);
@@ -46,7 +46,7 @@
         'orange' => ['border-orange-500/20 bg-orange-500/10 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300', 'bg-orange-500'],
         'pink' => ['border-pink-500/20 bg-pink-500/10 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300', 'bg-pink-500'],
         'indigo' => ['border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300', 'bg-indigo-500'],
-        'slate' => ['border-slate-500/20 bg-slate-500/10 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300', 'bg-slate-400'],
+        'slate' => ['border-zinc-500/20 bg-zinc-500/10 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300', 'bg-zinc-400'],
     ];
     [$badgeClass, $dotClass] = $toneClasses[$selectedTone] ?? $toneClasses['slate'];
     $displayLabel = $label ?: ucfirst(str_replace('_', ' ', (string) $value));
@@ -58,3 +58,4 @@
     @endif
     {{ $displayLabel }}
 </span>
+

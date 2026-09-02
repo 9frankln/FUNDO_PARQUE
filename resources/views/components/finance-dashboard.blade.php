@@ -1,6 +1,6 @@
 @props(['data'])
 
-<section wire:ignore x-data="financeDashboard(@js($data))" x-cloak
+<section wire:ignore x-data="financeDashboard(@js($data))"
          class="overflow-hidden rounded-[1.75rem] border border-emerald-900/10 bg-white shadow-[0_24px_70px_-38px_rgba(6,78,59,0.35)] dark:border-zinc-800 dark:bg-zinc-900/75 dark:shadow-black/30">
     <div class="relative overflow-hidden border-b border-emerald-900/10 bg-gradient-to-br from-emerald-50 via-white to-sky-50 px-4 py-5 dark:border-zinc-800 dark:from-emerald-900/45 dark:via-zinc-900 dark:to-sky-900/35 sm:px-6">
         <div class="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-emerald-300/20 blur-3xl dark:bg-emerald-400/10"></div>

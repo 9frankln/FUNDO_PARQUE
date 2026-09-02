@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Ajustes\Index;
+use App\Models\Animal;
 use App\Models\BackupRestore;
 use App\Models\DatabaseBackup;
 use App\Models\Fundo;
@@ -183,13 +184,11 @@ class AjustesModuleTest extends TestCase
             ->set('backupSettings.interval_unit', 'days')
             ->set('backupSettings.scope', DatabaseBackup::TYPE_COMPLETE)
             ->set('backupSettings.include_web', true)
-            ->set('backupSettings.include_audit', false)
             ->call('saveBackupSettings')
             ->assertHasNoErrors();
         $this->assertSame('5', DB::table('configuracion_sistema')->where('fundo_id', $fundo->id)->where('clave', 'backup_interval_value')->value('valor'));
         $this->assertSame(DatabaseBackup::TYPE_COMPLETE, DB::table('configuracion_sistema')->where('fundo_id', $fundo->id)->where('clave', 'backup_scope')->value('valor'));
         $this->assertSame('true', DB::table('configuracion_sistema')->where('fundo_id', $fundo->id)->where('clave', 'backup_include_web')->value('valor'));
-        $this->assertSame('false', DB::table('configuracion_sistema')->where('fundo_id', $fundo->id)->where('clave', 'backup_include_audit')->value('valor'));
 
         $contents = '-- verified backup';
         $backup = DatabaseBackup::create([
@@ -200,7 +199,7 @@ class AjustesModuleTest extends TestCase
             'disk' => 'backups',
             'path' => 'fundos/'.$fundo->id.'/verified.sql',
             'filename' => 'verified.sql',
-            'database_driver' => 'sqlite',
+            'database_driver' => 'mysql',
             'size_bytes' => strlen($contents),
             'checksum_sha256' => hash('sha256', $contents),
             'started_at' => now()->subSecond(),
@@ -228,7 +227,7 @@ class AjustesModuleTest extends TestCase
             ->set('activeTab', 'backup')
             ->assertSee('Máximo 10 GB')
             ->assertSee('Subiendo al servidor...')
-            ->assertSee('Sin límite artificial de velocidad.');
+            ->assertSee('Sin límite de velocidad');
     }
 
     public function test_backup_ui_generates_selected_scope_and_restores_with_confirmation(): void
@@ -253,7 +252,8 @@ class AjustesModuleTest extends TestCase
             ->call('openRestoreModal', $backup->id)
             ->assertSet('showRestoreModal', true)
             ->assertSet('restoreMode', DatabaseBackup::TYPE_COMPLETE)
-            ->set('restoreConfirmation', 'RESTAURAR')
+            ->set('restorePassword', 'password')
+            ->set('createPreBackup', true)
             ->call('restoreBackup')
             ->assertHasNoErrors()
             ->assertSet('showRestoreModal', false);
@@ -283,7 +283,9 @@ class AjustesModuleTest extends TestCase
                 'colaboradores' => true,
                 'roles' => false,
                 'general' => false,
+                'pdf' => false,
                 'backup' => false,
+                'peligro' => false,
             ])
             ->set('activeTab', 'roles')
             ->assertSet('activeTab', 'colaboradores');
@@ -354,6 +356,86 @@ class AjustesModuleTest extends TestCase
         Livewire::test(Index::class)
             ->call('openPasswordResetModal', $target->id)
             ->assertForbidden();
+    }
+
+    public function test_danger_zone_requires_admin_password_and_wipes_operational_data(): void
+    {
+        Storage::fake('backups');
+        Storage::fake('local');
+        Storage::fake('public');
+        [$admin, $fundo] = $this->context();
+        $this->actingAs($admin)->withSession(['fundo_id' => $fundo->id]);
+
+        $animal = Animal::factory()->create(['fundo_id' => $fundo->id]);
+        $block = \App\Models\LandingBlock::create([
+            'section' => 'hero',
+            'title' => 'Titulo landing',
+            'order' => 0,
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('animales', ['id' => $animal->id]);
+        $this->assertDatabaseHas('landing_blocks', ['id' => $block->id]);
+
+        // Contraseña incorrecta → error y NO borra.
+        Livewire::test(Index::class)
+            ->call('openDangerDeleteModal')
+            ->assertSet('showDangerDeleteModal', true)
+            ->set('dangerPassword', 'incorrecta')
+            ->call('confirmDangerDelete')
+            ->assertHasErrors('dangerPassword')
+            ->assertSet('showDangerDeleteModal', true);
+
+        $this->assertDatabaseHas('animales', ['id' => $animal->id]);
+        $this->assertDatabaseHas('landing_blocks', ['id' => $block->id]);
+
+        // Contraseña correcta → borra todo (incluyendo gestión web).
+        Livewire::test(Index::class)
+            ->call('openDangerDeleteModal')
+            ->set('dangerPassword', 'password')
+            ->call('confirmDangerDelete')
+            ->assertHasNoErrors()
+            ->assertSet('showDangerDeleteModal', false);
+
+        $this->assertDatabaseMissing('animales', ['id' => $animal->id]);
+        $this->assertDatabaseMissing('landing_blocks', ['id' => $block->id]);
+        // Conserva usuarios del fundo y deja el rastro de auditoría de la propia acción.
+        $this->assertDatabaseHas('fundo_user', ['fundo_id' => $fundo->id]);
+        $this->assertDatabaseHas('auditoria_logs', ['fundo_id' => $fundo->id]);
+    }
+
+    public function test_pdf_report_settings_can_be_saved_with_individual_signatures_and_watermark_orientation(): void
+    {
+        [$admin, $fundo] = $this->context();
+        $this->actingAs($admin)->withSession(['fundo_id' => $fundo->id]);
+
+        Livewire::test(Index::class, ['activeTab' => 'pdf'])
+            ->assertSet('activeTab', 'pdf')
+            ->assertSet('pdfSettings.orientacion_marca_agua', 'diagonal')
+            ->assertSet('pdfSettings.mostrar_firma_1', true)
+            ->assertSet('pdfSettings.mostrar_firma_2', true)
+            ->set('pdfSettings.orientacion_marca_agua', 'horizontal')
+            ->set('pdfSettings.texto_marca_agua', 'CONFIDENCIAL')
+            ->set('pdfSettings.mostrar_firma_1', true)
+            ->set('pdfSettings.mostrar_firma_2', false)
+            ->set('pdfSettings.firma_1_cargo', 'Gerente General')
+            ->set('pdfSettings.firma_1_nombre', 'Ing. Juan Pérez')
+            ->call('savePdfSettings')
+            ->assertHasNoErrors();
+
+        $config = app(\App\Support\PdfReportConfig::class)->forFundo($fundo->id);
+        $this->assertSame('horizontal', $config->watermarkOrientation());
+        $this->assertSame('0deg', $config->watermarkRotation());
+        $this->assertSame('CONFIDENCIAL', $config->watermarkText());
+        $this->assertTrue($config->showSignature1());
+        $this->assertFalse($config->showSignature2());
+
+        // Reset
+        Livewire::test(Index::class, ['activeTab' => 'pdf'])
+            ->call('resetPdfSettings')
+            ->assertHasNoErrors()
+            ->assertSet('pdfSettings.orientacion_marca_agua', 'diagonal')
+            ->assertSet('pdfSettings.mostrar_firma_1', true)
+            ->assertSet('pdfSettings.mostrar_firma_2', true);
     }
 
     private function context(): array

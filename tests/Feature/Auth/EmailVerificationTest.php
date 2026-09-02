@@ -24,15 +24,6 @@ class EmailVerificationTest extends TestCase
             ->assertStatus(200);
     }
 
-    public function test_unverified_user_cannot_open_verified_routes(): void
-    {
-        $user = User::factory()->unverified()->create();
-
-        $this->actingAs($user)
-            ->get('/dashboard')
-            ->assertRedirect(route('verification.notice'));
-    }
-
     public function test_email_can_be_verified(): void
     {
         $user = User::factory()->unverified()->create();

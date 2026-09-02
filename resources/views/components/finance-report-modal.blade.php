@@ -171,8 +171,11 @@
                 <button type="button" wire:click="$set('showReportModal', false)" class="h-11 flex-1 rounded-xl border border-zinc-300 px-5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 sm:flex-none dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900">Cancelar</button>
                 <button type="button" wire:click="{{ $downloadMethod }}" wire:loading.attr="disabled" wire:target="{{ $downloadMethod }}"
                         class="h-11 flex-1 rounded-xl px-6 text-sm font-bold text-white shadow-md transition disabled:cursor-wait disabled:opacity-70 sm:flex-none {{ $accentButton }}">
-                    <span wire:loading.remove wire:target="{{ $downloadMethod }}">Generar reporte</span>
-                    <span wire:loading.class.remove="hidden" wire:target="{{ $downloadMethod }}" class="hidden">Generando...</span>
+                    <span wire:loading.remove wire:target="{{ $downloadMethod }}" class="inline-flex items-center gap-1.5">
+                        <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <span>Ver Vista Previa PDF</span>
+                    </span>
+                    <span wire:loading.class.remove="hidden" wire:target="{{ $downloadMethod }}" class="hidden">Generando vista previa...</span>
                 </button>
             </div>
         </div>

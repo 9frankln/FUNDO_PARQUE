@@ -2,10 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\Finanzas\AsignacionForm;
 use App\Livewire\Finanzas\Index as FinanzasIndex;
-use App\Models\AsignacionFamiliar;
+use App\Livewire\Finanzas\MovimientoForm;
+use App\Models\CategoriaFinanciera;
 use App\Models\Fundo;
+use App\Models\Movimiento;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -18,41 +19,48 @@ class RecentRecordModulesTest extends TestCase
     public function test_created_and_updated_assignment_opens_its_tab_and_is_temporarily_pinned(): void
     {
         [$user, $fundo] = $this->administratorWithFundo();
-        $existing = AsignacionFamiliar::create([
+        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
+        $asignacionCategory = CategoriaFinanciera::where('fundo_id', null)
+            ->where('tipo', 'egreso')
+            ->where('nombre', 'Asignación Familiar')
+            ->firstOrFail();
+
+        $existing = Movimiento::create([
             'fundo_id' => $fundo->id,
-            'beneficiario' => 'Registro anterior',
+            'tipo' => 'egreso',
+            'categoria_id' => $asignacionCategory->id,
             'monto' => 100,
             'moneda' => 'PEN',
             'fecha' => now()->toDateString(),
+            'beneficiario' => 'Registro anterior',
             'proposito' => 'estudio',
         ]);
-        $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
-        Livewire::test(AsignacionForm::class)
+        Livewire::test(MovimientoForm::class)
+            ->set('tipo', 'egreso')
+            ->set('categoriaId', (string) $asignacionCategory->id)
             ->set('beneficiario', 'Registro reciente')
             ->set('monto', 250)
             ->set('fecha', now()->subDay()->toDateString())
             ->call('save')
             ->assertHasNoErrors();
 
-        $recent = AsignacionFamiliar::where('beneficiario', 'REGISTRO RECIENTE')->firstOrFail();
+        $recent = Movimiento::where('beneficiario', 'REGISTRO RECIENTE')->firstOrFail();
         Livewire::test(FinanzasIndex::class)
-            ->assertSet('tab', 'asignaciones')
             ->assertSet('recentRecord.id', $recent->id)
             ->assertSet('recentRecord.action', 'created')
-            ->assertViewHas('asignaciones', fn ($rows) => $rows->first()->is($recent))
+            ->assertViewHas('movimientos', fn ($rows) => $rows->first()->is($recent))
             ->call('clearRecentRecord')
-            ->assertViewHas('asignaciones', fn ($rows) => $rows->first()->is($existing));
+            ->assertViewHas('movimientos', fn ($rows) => $rows->first()->is($existing));
 
-        Livewire::test(AsignacionForm::class, ['id' => $recent->id])
+        Livewire::test(MovimientoForm::class, ['id' => $recent->id])
             ->set('monto', 300)
             ->call('save')
             ->assertHasNoErrors();
 
         Livewire::test(FinanzasIndex::class)
-            ->assertSet('tab', 'asignaciones')
             ->assertSet('recentRecord.action', 'updated')
-            ->assertViewHas('asignaciones', fn ($rows) => $rows->first()->is($recent));
+            ->assertViewHas('movimientos', fn ($rows) => $rows->first()->is($recent));
     }
 
     private function administratorWithFundo(): array

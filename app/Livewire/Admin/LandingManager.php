@@ -67,14 +67,15 @@ class LandingManager extends Component
                 'settings' => array_replace(LandingBlock::defaultSettings($section), $block->settings ?? []),
                 'suggested_title' => $content['title'],
                 'suggested_content' => $content['content'],
-                'media' => $block->media->map(fn (Media $media) => [
+                'media' => $block->media->mapWithKeys(fn (Media $media) => [$media->id => [
                     'id' => $media->id,
                     'name' => $media->name,
                     'preview_url' => $media->hasGeneratedConversion('thumb') ? $media->getUrl('thumb') : $media->getUrl(),
                     'caption' => (string) $media->getCustomProperty('caption', ''),
+                    'portada' => (bool) $media->getCustomProperty('portada', false),
                     'size' => $media->size,
                     ...LandingBlock::mediaFrame($media),
-                ])->values()->all(),
+                ]])->all(),
             ];
             $this->uploads[$section] = [];
             $this->uploadFrames[$section] = [];
@@ -249,11 +250,17 @@ class LandingManager extends Component
             ->values()
             ->all();
 
-        DB::transaction(function () use ($ids): void {
+        DB::transaction(function () use ($block, $mediaId, $ids): void {
+            $block->media()->get()->each(function (Media $media) use ($mediaId): void {
+                $media->setCustomProperty('portada', $media->getKey() === $mediaId)->save();
+            });
             Media::setNewOrder($ids);
         });
 
         $this->applyMediaOrderToState($section, $ids);
+        $this->blocks[$section]['media'] = collect($this->blocks[$section]['media'] ?? [])
+            ->map(fn (array $item) => array_replace($item, ['portada' => (int) $item['id'] === $mediaId]))
+            ->all();
         app(AuditLogger::class)->record('landing.portada_actualizada', 'ajustes', 'Cambió la portada de una sección pública.', metadata: ['seccion' => $section, 'media_id' => $mediaId]);
         $this->dispatchToast('Portada actualizada', 'Imagen principal de sección cambiada.');
     }
@@ -283,7 +290,6 @@ class LandingManager extends Component
         $media->delete();
         $this->blocks[$section]['media'] = collect($this->blocks[$section]['media'] ?? [])
             ->reject(fn (array $item) => (int) $item['id'] === $mediaId)
-            ->values()
             ->all();
         app(AuditLogger::class)->record('landing.imagen_eliminada', 'ajustes', 'Eliminó imagen de la web pública.', metadata: ['seccion' => $section, 'media_id' => $mediaId]);
         $this->dispatchToast('Imagen eliminada', 'Archivo y conversiones retirados.');
@@ -330,7 +336,6 @@ class LandingManager extends Component
 
         $this->blocks[$section]['media'] = collect($this->blocks[$section]['media'] ?? [])
             ->map(fn (array $item) => (int) $item['id'] === $media->id ? array_replace($item, $frame) : $item)
-            ->values()
             ->all();
 
         $this->closeFrameEditor();
@@ -389,9 +394,8 @@ class LandingManager extends Component
             ->keyBy(fn (array $item) => (int) $item['id']);
 
         $this->blocks[$section]['media'] = collect($ids)
-            ->map(fn ($id) => $media->get((int) $id))
+            ->mapWithKeys(fn ($id) => [(int) $id => $media->get((int) $id)])
             ->filter()
-            ->values()
             ->all();
     }
 

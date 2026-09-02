@@ -9,10 +9,48 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class Animal extends Model
 {
     use Auditable, BelongsToFundo, HasFactory, SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (self $model) {
+            if (! $model->isForceDeleting() && $model->arete) {
+                // Free the unique arete and sequence on soft delete
+                $model->arete = $model->arete . '-DEL-' . $model->id . '-' . time();
+                $model->codigo_secuencia = null;
+                $model->saveQuietly();
+            }
+        });
+
+        static::deleted(function (self $model) {
+            DB::table('animal_identifiers')->where('animal_id', $model->id)->delete();
+
+            if ($model->fundo_id && $model->especie_id && $model->codigo_anio) {
+                $maxSeq = (int) DB::table('animales')
+                    ->where('fundo_id', $model->fundo_id)
+                    ->where('especie_id', $model->especie_id)
+                    ->where('codigo_anio', $model->codigo_anio)
+                    ->whereNull('deleted_at')
+                    ->max('codigo_secuencia');
+
+                DB::table('animal_code_sequences')->updateOrInsert(
+                    [
+                        'fundo_id' => $model->fundo_id,
+                        'especie_id' => $model->especie_id,
+                        'codigo_anio' => $model->codigo_anio,
+                    ],
+                    [
+                        'ultimo_numero' => $maxSeq,
+                        'updated_at' => now(),
+                    ]
+                );
+            }
+        });
+    }
 
     public const REPRODUCTIVE_STATES = [
         'vacia' => 'Vacía',

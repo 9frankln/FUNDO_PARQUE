@@ -53,7 +53,7 @@ class EngordeReport
             ->with([
                 'animales' => fn ($query) => $query
                     ->withCount('pesajes')
-                    ->with(['animal.especie', 'animal.raza', 'ultimoPesaje'])
+                    ->with(['animal.especie', 'animal.raza', 'animal.movimientoVenta', 'ultimoPesaje'])
                     ->orderBy('id'),
             ])
             ->orderByDesc('fecha_inicio')

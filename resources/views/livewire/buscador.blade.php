@@ -4,7 +4,7 @@
     @keydown.escape.window="$wire.clearSearch(); $refs.globalSearch.focus()"
     class="mx-auto min-w-0 max-w-6xl space-y-5 overflow-x-hidden"
 >
-    <header class="relative isolate overflow-hidden rounded-[1.75rem] border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-slate-50 to-teal-50/60 p-5 text-zinc-900 shadow-xl dark:border-emerald-800/60 dark:bg-gradient-to-br dark:from-zinc-950 dark:via-emerald-950/90 dark:to-zinc-950 dark:text-white sm:p-8">
+    <header class="relative isolate overflow-hidden rounded-[1.75rem] border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-zinc-50 to-teal-50/60 p-5 text-zinc-900 shadow-xl dark:border-emerald-800/60 dark:bg-gradient-to-br dark:from-zinc-950 dark:via-emerald-950/90 dark:to-zinc-950 dark:text-white sm:p-8">
         <div class="pointer-events-none absolute -right-16 -top-20 -z-10 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl dark:bg-emerald-500/10"></div>
         <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div class="min-w-0">
@@ -17,12 +17,22 @@
                 Busca por arete, animal, especie, lote, fecha, diagnóstico, categoría financiera, monto o descripción.
             </p>
         </div>
-        <a href="{{ route('dashboard') }}" class="inline-flex w-full shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-extrabold text-zinc-800 shadow-sm transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:w-auto sm:self-auto">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/>
-            </svg>
-            Volver al dashboard
-        </a>
+        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <button type="button"
+                    onclick="window.history.length > 1 ? window.history.back() : window.location.href='{{ route('dashboard') }}'"
+                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-extrabold text-zinc-800 shadow-sm transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+                <span>Atrás</span>
+            </button>
+            <a wire:navigate href="{{ route('dashboard') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-extrabold text-zinc-800 shadow-sm transition hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 13h6V4H4v9Zm10 7h6v-9h-6v9ZM4 20h6v-3H4v3Zm10-13h6V4h-6v3Z"/>
+                </svg>
+                Dashboard
+            </a>
+        </div>
         </div>
     </header>
 
@@ -111,13 +121,13 @@
                         title="{{ $category['description'] }}"
                         class="inline-flex shrink-0 min-w-0 items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-xs font-extrabold transition-all duration-200 ease-out focus:outline-none
                             {{ $categoria === $key
-                                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-400/40 dark:from-emerald-400 dark:to-teal-400 dark:text-slate-950 scale-[1.02]'
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-400/40 dark:from-emerald-400 dark:to-teal-400 dark:text-zinc-950 scale-[1.02]'
                                 : 'border border-zinc-200 bg-zinc-100/80 text-zinc-700 hover:bg-zinc-200/80 dark:border-zinc-800 dark:bg-zinc-950/80 dark:text-zinc-300 dark:hover:bg-zinc-800/80' }}"
                     >
                         <span class="h-2 w-2 shrink-0 rounded-full {{ $dotClass }}"></span>
                         <span class="truncate">{{ $category['label'] }}</span>
                         @if($search !== '' && $key !== 'todos' && ($resultCounts[$key] ?? 0) > 0)
-                            <span class="rounded-full px-1.5 py-0.5 text-[9px] {{ $categoria === $key ? 'bg-black/20 text-slate-950' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400' }}">
+                            <span class="rounded-full px-1.5 py-0.5 text-[9px] {{ $categoria === $key ? 'bg-black/20 text-zinc-950' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400' }}">
                                 {{ $resultCounts[$key] }}
                             </span>
                         @endif
@@ -239,3 +249,4 @@
         </div>
     </section>
 </div>
+

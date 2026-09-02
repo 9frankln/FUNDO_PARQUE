@@ -12,7 +12,7 @@ class RazasSeeder extends Seeder
     {
         $razasPorEspecie = [
             'Bovino' => [
-                'Holstein Friesian', 'Brown Swiss', 'Jersey', 'Gyr', 'Brahman',
+                'Holstein Friesian', 'Brown Swiss', 'Jersey', 'Fleckvieh', 'Gyr', 'Brahman',
                 'Simmental', 'Angus', 'Hereford', 'Charolais', 'Criollo',
             ],
             'Equino' => [

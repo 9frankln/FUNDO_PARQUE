@@ -15,6 +15,12 @@ class MovimientosSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            $this->command?->error('Los movimientos ficticios solo pueden crearse en local o testing.');
+
+            return;
+        }
+
         $fundo = Fundo::first();
         if (! $fundo) {
             $this->command->error('No hay fundos creados. Ejecuta FundoSeeder o crea uno primero.');
@@ -40,50 +46,37 @@ class MovimientosSeeder extends Seeder
             $egresoCategories[] = $cat->id;
         }
 
-        // Generate 5 ingresos and 5 egresos per month for the last 24 months
+        // Generate a stable 24-month history that can be safely reseeded.
         $now = Carbon::now();
-        $start = $now->copy()->subMonths(24)->startOfMonth();
+        $saved = 0;
 
-        $data = [];
-        $descriptions = ['Venta recurrente', 'Pago de servicios', 'Ajuste mensual', 'Ingreso extra', 'Gasto operativo'];
+        for ($offset = 23; $offset >= 0; $offset--) {
+            $month = $now->copy()->subMonthsNoOverflow($offset)->startOfMonth();
+            $monthIndex = 23 - $offset;
 
-        for ($month = $start->copy(); $month->lte($now); $month->addMonth()) {
-            // Ingresos
-            for ($i = 0; $i < 5; $i++) {
-                $data[] = [
-                    'fundo_id' => $fundo->id,
-                    'tipo' => 'ingreso',
-                    'categoria_id' => $ingresoCategories[array_rand($ingresoCategories)],
-                    'monto' => rand(100, 1500) + (rand(0, 99) / 100),
-                    'moneda' => 'PEN',
-                    'fecha' => $month->copy()->addDays(rand(0, 27))->format('Y-m-d'),
-                    'descripcion' => $descriptions[array_rand($descriptions)],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
-
-            // Egresos
-            for ($i = 0; $i < 5; $i++) {
-                $data[] = [
-                    'fundo_id' => $fundo->id,
-                    'tipo' => 'egreso',
-                    'categoria_id' => $egresoCategories[array_rand($egresoCategories)],
-                    'monto' => rand(50, 800) + (rand(0, 99) / 100),
-                    'moneda' => 'PEN',
-                    'fecha' => $month->copy()->addDays(rand(0, 27))->format('Y-m-d'),
-                    'descripcion' => $descriptions[array_rand($descriptions)],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+            foreach (['ingreso' => $ingresoCategories, 'egreso' => $egresoCategories] as $type => $categories) {
+                for ($i = 1; $i <= 5; $i++) {
+                    $description = sprintf('DEMO-HIST-%s-%s-%02d', $month->format('Y-m'), strtoupper($type), $i);
+                    $movement = Movimiento::withTrashed()->updateOrCreate(
+                        ['fundo_id' => $fundo->id, 'descripcion' => $description],
+                        [
+                            'tipo' => $type,
+                            'categoria_id' => $categories[($monthIndex + $i - 1) % count($categories)],
+                            'monto' => $type === 'ingreso'
+                                ? 900 + ($monthIndex * 25) + ($i * 80)
+                                : 300 + ($monthIndex * 12) + ($i * 45),
+                            'moneda' => 'PEN',
+                            'fecha' => $month->copy()->day(min(3 + ($i * 5), $month->daysInMonth))->format('Y-m-d'),
+                        ]
+                    );
+                    if ($movement->trashed()) {
+                        $movement->restore();
+                    }
+                    $saved++;
+                }
             }
         }
 
-        // Bulk insert chunks of 50
-        foreach (array_chunk($data, 50) as $chunk) {
-            Movimiento::insert($chunk);
-        }
-
-        $this->command->info('Se insertaron '.count($data)." movimientos ficticios para el fundo: {$fundo->nombre}");
+        $this->command?->info("Se crearon o actualizaron {$saved} movimientos ficticios para el fundo: {$fundo->nombre}");
     }
 }

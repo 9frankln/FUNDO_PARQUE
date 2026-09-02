@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\madar\\AppData\\Roaming\\npm\\node_modules\\@playwright\\mcp\\cli.js",
+        "--browser", "chromium",
+        "--headless"
+      ]
+    }
+  }
+}

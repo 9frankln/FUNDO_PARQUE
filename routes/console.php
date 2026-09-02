@@ -11,3 +11,13 @@ Artisan::command('inspire', function () {
 Schedule::command('backups:run-scheduled')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
+
+// Tareas programadas de sesiones (restablecer / limpiar historial).
+Schedule::command('sessions:process-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+// Poda diaria de registros antiguos (auditoría > 180 días) a las 03:30.
+Schedule::command('model:prune')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();

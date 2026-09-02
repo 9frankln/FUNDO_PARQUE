@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Ficha integral | {{ $branding->name }} - {{ $animal->arete }}</title>
     <style>
-        @page { size: A4 landscape; margin: 14px 16px 24px; }
+        @page { size: A4 landscape; margin: 14mm 10mm 16mm 10mm; }
         * { box-sizing: border-box; }
         body {
             margin: 0;
@@ -46,11 +46,18 @@
             vertical-align: top;
         }
         .meta-label { color: #35564b; font-weight: bold; }
-        .section { margin-top: 4px; }
+        .section {
+            margin-top: 6px;
+            margin-bottom: 6px;
+            border: 1px solid {{ $pdfConfig->accentBorder() }};
+            border-radius: {{ $pdfConfig->tableBorderRadius() }};
+            background: #ffffff;
+            page-break-inside: auto;
+        }
         .section-title {
-            margin: 0 0 3px;
-            padding: 3px 5px;
-            border-left: 3px solid #4f7a69;
+            margin: 0;
+            padding: 3px 6px;
+            border-bottom: 1px solid #dce5df;
             background: #eff4f1;
             color: #2f493f;
             font-size: 7.6px;
@@ -59,7 +66,6 @@
         }
         .section-title.productive { border-color: #b78639; background: #fbf5e9; color: #6f5124; }
         .section-title.clinical { border-color: #a7666f; background: #faeff1; color: #704149; }
-        .section-title.preventive { border-color: #4c7c94; background: #eef6f9; color: #365b6c; }
         .section-title.reproductive { border-color: #756a94; background: #f3f1f8; color: #554d70; }
         .section-title.milk { border-color: #477d76; background: #edf7f5; color: #315b55; }
         .overview-table { table-layout: fixed; page-break-inside: avoid; }
@@ -67,8 +73,9 @@
         .overview-table > tbody > tr > td + td { padding: 0 0 0 4px; }
         .profile-table {
             table-layout: fixed;
-            border: 1px solid #cce5d3;
+            border: none;
             background: #fbfefc;
+            border-bottom: 1px solid {{ $pdfConfig->accentBorder() }};
         }
         .profile-table > tbody > tr > td { padding: 4px; vertical-align: middle; }
         .photo-cell {
@@ -114,10 +121,7 @@
             text-align: center;
             text-transform: uppercase;
         }
-        .badge-active { background: #dfeae3; color: #2f493f; }
-        .badge-inactive { background: #fee2e2; color: #991b1b; }
-        .summary-table { margin-top: 3px; table-layout: fixed; }
-        .summary-table td {
+        .summary-cell {
             padding: 3px 4px;
             border: 1px solid #d6e5d9;
             background: #f8fbf8;
@@ -185,63 +189,50 @@
         }
         .milk-summary strong { display: block; color: #52645a; font-size: 5.5px; text-transform: uppercase; }
         .milk-summary span { display: block; margin-top: 1px; color: #2f493f; font-size: 6.8px; font-weight: bold; }
-        .footer {
-            position: fixed;
-            right: 0;
-            bottom: -19px;
-            left: 0;
-            padding-top: 3px;
-            border-top: 1px solid #d6e5d9;
-            color: #94a3b8;
-            font-size: 5.8px;
-        }
-        .page-number { float: right; }
-        .page-number::after { content: counter(page); }
     </style>
+    @include('pdf.partials.styles')
 </head>
 <body>
+    @include('pdf.partials.watermark')
     @php
-        $interventionLabels = [
-            'vacuna' => 'Vacuna',
-            'desparasitante_interno' => 'Desparasitante interno',
-            'desparasitante_externo' => 'Desparasitante externo',
-            'vitamina' => 'Vitamina',
-        ];
         $isFemale = $animal->genero === 'hembra';
         $hasMilkSection = $animal->apta_ordeno || $milkRecords->isNotEmpty();
         $generatedInPeru = $generatedAt->copy()->timezone('America/Lima')->format('d/m/Y H:i');
-        $selectedSections = $selectedSections ?? ['identity', 'productive', 'clinical', 'preventive', 'reproductive', 'milk'];
+        $selectedSections = $selectedSections ?? ['identity', 'productive', 'clinical', 'reproductive', 'milk'];
         $allReportColumns = \App\Livewire\Animal\Show::reportColumnOptions();
         $selectedColumns = $selectedColumns ?? collect($allReportColumns)->map(fn ($columns) => array_keys($columns))->all();
         $hasField = fn (string $section, string $field): bool => in_array($field, $selectedColumns[$section] ?? [], true);
         $parallelOverview = in_array('identity', $selectedSections, true) && in_array('productive', $selectedSections, true);
-        $clinicalWeights = ['date' => 7, 'classification' => 12, 'status' => 10, 'diagnosis' => 22, 'treatment' => 28, 'medication' => 15, 'dosage' => 12, 'evidence' => 8];
-        $preventiveWeights = ['date' => 8, 'intervention' => 14, 'product' => 20, 'purpose' => 24, 'dose' => 10, 'next_dose' => 18, 'responsible' => 18, 'observations' => 28, 'evidence' => 9];
+        $clinicalWeights = ['date' => 7, 'type' => 9, 'classification' => 12, 'status' => 10, 'diagnosis' => 22, 'treatment' => 28, 'medication' => 15, 'dosage' => 12, 'evidence' => 8];
         $reproductiveWeights = ['date' => 8, 'birth_type' => 10, 'maternal_condition' => 14, 'calf' => 14, 'calf_sex' => 9, 'calf_status' => 13, 'birth_weight' => 10, 'observations' => 30];
         $milkWeights = ['date' => 8, 'shift' => 8, 'liters' => 8, 'exception' => 22, 'justification' => 38];
         $sectionNumber = 0;
     @endphp
 
-    <div class="header">
-        <x-brand-logo pdf style="float: right; width: 24px; height: 24px; color: #35564b; object-fit: contain" />
-        <p class="eyebrow">{{ $branding->tagline }} | Ficha individual integral</p>
-        <h1>{{ $branding->name }} - Reporte Integral del Animal</h1>
+    <div class="header" style="border-bottom-color: {{ $pdfConfig->accentColor() }};">
+        @if($pdfConfig->showHeaderLogo())
+            <x-brand-logo pdf style="float: right; width: 24px; height: 24px; color: {{ $pdfConfig->accentColor() }}; object-fit: contain" />
+        @endif
+        <p class="eyebrow" style="color: {{ $pdfConfig->accentColor() }};">{{ $branding->tagline }} | Ficha individual integral</p>
+        <h1 style="color: {{ $pdfConfig->accentDark() }};">{{ $branding->name }} - Reporte Integral del Animal</h1>
         <p class="subtitle">Ejemplar: <strong>{{ $animal->arete }} | {{ $animal->nombre ?: 'Sin nombre' }}</strong> &nbsp;·&nbsp; Fundo: <strong>{{ $fundo->nombre }}</strong></p>
     </div>
 
-    <table class="meta-table">
-        <tr>
-            <td><span class="meta-label">Administrador(es):</span> {{ $administrators ?: 'No asignado' }}</td>
-            <td><span class="meta-label">Generado por:</span> {{ $generatedBy ?: 'Sin dato' }}</td>
-        </tr>
-        <tr>
-            <td><span class="meta-label">Código del animal:</span> {{ $animal->arete }}</td>
-            <td><span class="meta-label">Fecha del reporte:</span> {{ $generatedInPeru }} (hora de Perú)</td>
-        </tr>
-        <tr>
-            <td colspan="2"><span class="meta-label">Contenido:</span> {{ $reportSummary }}</td>
-        </tr>
-    </table>
+    <div class="summary-card" style="border: 1px solid {{ $pdfConfig->accentBorder() }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; overflow: hidden; background-color: {{ $pdfConfig->accentSoft() }}; margin-bottom: 8pt;">
+        <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; background: transparent;">
+            <tr>
+                <td style="width: 50%; border: none; border-right: 1px solid {{ $pdfConfig->accentBorder() }}; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Generado por:</strong> {{ $generatedBy ?: 'Sin dato' }}</td>
+                <td style="width: 50%; border: none; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Usuario / Documento:</strong> &#64;{{ auth()->user()?->username ?: 'admin' }} | DNI: {{ auth()->user()?->dni ?: '00000000' }}</td>
+            </tr>
+            <tr>
+                <td style="width: 50%; border: none; border-right: 1px solid {{ $pdfConfig->accentBorder() }}; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Código del animal:</strong> {{ $animal->arete }}</td>
+                <td style="width: 50%; border: none; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Fecha del reporte:</strong> {{ $generatedInPeru }} (hora de Perú)</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="border: none; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Contenido:</strong> {{ $reportSummary }}</td>
+            </tr>
+        </table>
+    </div>
 
     @if($parallelOverview)
     <table class="overview-table">
@@ -359,7 +350,7 @@
         $sectionNumber++;
     @endphp
     <section class="section">
-        <h2 class="section-title clinical">{{ $sectionNumber }}. Historial clínico</h2>
+        <h2 class="section-title clinical">{{ $sectionNumber }}. Historial de salud</h2>
         @if($animal->sanidadRegistros->isNotEmpty())
             @php
                 $clinicalColumns = array_values(array_intersect(array_keys($allReportColumns['clinical']), $selectedColumns['clinical'] ?? []));
@@ -380,23 +371,26 @@
                                     @case('date')
                                         <td class="date">{{ $record->fecha_evento->format('d/m/Y') }}</td>
                                         @break
+                                    @case('type')
+                                        <td><strong>{{ $record->categoria_salud_label }}</strong></td>
+                                        @break
                                     @case('classification')
-                                        <td>{{ ucfirst(str_replace('_', ' ', $record->clasificacion)) }}</td>
+                                        <td>{{ ucfirst(str_replace('_', ' ', $record->subtipo ?: 'otro')) }}</td>
                                         @break
                                     @case('status')
-                                        <td><strong>{{ ucfirst(str_replace('_', ' ', $record->estado_clinico)) }}</strong></td>
+                                        <td><strong>{{ $record->estado_seguimiento_label }}</strong></td>
                                         @break
                                     @case('diagnosis')
                                         <td>{{ $record->sintomas_diagnostico }}</td>
                                         @break
                                     @case('treatment')
-                                        <td>{{ $record->tratamiento ?: 'Sin tratamiento registrado' }}</td>
+                                        <td>{{ $record->tratamiento ?: $record->producto_marca ?: 'Sin indicaciones' }}</td>
                                         @break
                                     @case('medication')
-                                        <td>{{ $record->medicamento?->nombre ?? '-' }}</td>
+                                        <td>{{ $record->dosisPlan->map(fn ($d) => 'D'.$d->numero.' '.($d->medicamento?->nombre ?? $d->medicamento_nombre ?? 'Producto').' '.($d->aplicada ? 'aplicada' : 'programada'))->join(' · ') ?: '-' }}</td>
                                         @break
                                     @case('dosage')
-                                        <td>{{ $record->dosis_via ?: '-' }}</td>
+                                        <td>{{ collect([$record->severidad, $record->ubicacion_corporal])->filter()->join(' · ') ?: '-' }}</td>
                                         @break
                                     @case('evidence')
                                         <td>{{ $record->fotos->isNotEmpty() ? $record->fotos->count().' foto(s)' : ($record->evidencia_ruta ? 'Adjunto anterior' : 'No adjunta') }}</td>
@@ -408,69 +402,7 @@
                 </tbody>
             </table>
         @else
-            <div class="empty">Sin eventos clínicos registrados.</div>
-        @endif
-    </section>
-    @endif
-
-    @if(in_array('preventive', $selectedSections, true))
-    @php
-        $sectionNumber++;
-    @endphp
-    <section class="section">
-        <h2 class="section-title preventive">{{ $sectionNumber }}. Profilaxis y vacunas</h2>
-        @if($profilaxis->isNotEmpty())
-            @php
-                $preventiveColumns = array_values(array_intersect(array_keys($allReportColumns['preventive']), $selectedColumns['preventive'] ?? []));
-                $preventiveTotalWeight = max(array_sum(array_intersect_key($preventiveWeights, array_flip($preventiveColumns))), 1);
-            @endphp
-            <table class="data-table preventive">
-                <colgroup>
-                    @foreach($preventiveColumns as $column)
-                        <col width="{{ round(($preventiveWeights[$column] / $preventiveTotalWeight) * 100, 2) }}%" style="width: {{ round(($preventiveWeights[$column] / $preventiveTotalWeight) * 100, 2) }}%">
-                    @endforeach
-                </colgroup>
-                <thead><tr>@foreach($preventiveColumns as $column)<th>{{ $allReportColumns['preventive'][$column] }}</th>@endforeach</tr></thead>
-                <tbody>
-                    @foreach($profilaxis as $record)
-                        <tr>
-                            @foreach($preventiveColumns as $column)
-                                @switch($column)
-                                    @case('date')
-                                        <td class="date">{{ $record->fecha_aplicacion->format('d/m/Y') }}</td>
-                                        @break
-                                    @case('intervention')
-                                        <td><strong>{{ $interventionLabels[$record->tipo_intervencion] ?? ucfirst(str_replace('_', ' ', $record->tipo_intervencion)) }}</strong></td>
-                                        @break
-                                    @case('product')
-                                        <td>{{ $record->producto_marca }}</td>
-                                        @break
-                                    @case('purpose')
-                                        <td>{{ $record->proposito ?: '-' }}</td>
-                                        @break
-                                    @case('dose')
-                                        <td>{{ $record->dosis ?: '-' }}</td>
-                                        @break
-                                    @case('next_dose')
-                                        <td>{{ $record->fechasDosisProgramadas()->isEmpty() ? 'Única dosis' : $record->fechasDosisProgramadas()->map(fn ($scheduledDate, $doseIndex) => 'Dosis '.($doseIndex + 2).': '.$scheduledDate->format('d/m/Y'))->join(' | ') }}</td>
-                                        @break
-                                    @case('responsible')
-                                        <td>{{ $record->responsable ?: '-' }}</td>
-                                        @break
-                                    @case('observations')
-                                        <td>{{ $record->observaciones ?: '-' }}</td>
-                                        @break
-                                    @case('evidence')
-                                        <td>{{ $record->fotos->isNotEmpty() ? $record->fotos->count().' foto(s)' : 'No' }}</td>
-                                        @break
-                                @endswitch
-                            @endforeach
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            <div class="empty">Sin registros de profilaxis o vacunación.</div>
+            <div class="empty">Sin eventos de salud registrados.</div>
         @endif
     </section>
     @endif
@@ -598,9 +530,7 @@
         </section>
     @endif
 
-    <div class="footer">
-        {{ $branding->name }} · Ficha integral {{ $animal->arete }} · {{ $generatedInPeru }} · {{ $generatedBy }}
-        <span class="page-number">Página </span>
-    </div>
+    @include('pdf.partials.signatures')
+    @include('pdf.partials.footer')
 </body>
 </html>

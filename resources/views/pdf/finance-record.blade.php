@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <title>{{ $reportTitle }} | {{ $branding->name }}</title>
     <style>
-        @page { size: A4 portrait; margin: 26px 30px 38px; }
+        @page { size: A4 portrait; margin: 15mm 12mm 18mm 12mm; }
         * { box-sizing: border-box; }
+        @php
+            $accent = $accent ?? $pdfConfig->accentColor();
+            $accentSoft = $accentSoft ?? $pdfConfig->accentSoft();
+        @endphp
         body { margin: 0; color: #24312b; font-family: DejaVu Sans, sans-serif; font-size: 9px; line-height: 1.35; }
         .header { padding: 14px 16px; border-left: 5px solid {{ $accent }}; background: {{ $accentSoft }}; }
         .eyebrow { margin: 0 0 4px; color: {{ $accent }}; font-size: 7px; font-weight: bold; letter-spacing: 1.2px; text-transform: uppercase; }
@@ -26,17 +30,18 @@
         .photo-box { margin-bottom: 6px; padding: 8px; border: 1px solid #dce5df; background: #fafcfb; text-align: center; }
         .photo { width: 290px; height: 185px; object-fit: contain; }
         .photo-empty { padding: 30px; color: #839087; font-size: 8px; font-weight: bold; text-transform: uppercase; }
-        .footer { position: fixed; right: 0; bottom: -24px; left: 0; padding-top: 5px; border-top: 1px solid #d9e2dc; color: #85938b; font-size: 6.5px; }
-        .page { float: right; }
-        .page::after { content: counter(page); }
     </style>
+    @include('pdf.partials.styles')
 </head>
 <body>
+    @include('pdf.partials.watermark')
     @php
         $generatedInPeru = $generatedAt->copy()->timezone('America/Lima')->format('d/m/Y H:i');
     @endphp
     <header class="header">
-        <x-brand-logo pdf style="float: right; width: 30px; height: 30px; color: {{ $accent }}; object-fit: contain" />
+        @if($pdfConfig->showHeaderLogo())
+            <x-brand-logo pdf style="float: right; width: 30px; height: 30px; color: {{ $accent }}; object-fit: contain" />
+        @endif
         <p class="eyebrow">{{ $branding->name }} · {{ $branding->tagline }} · Reporte financiero</p>
         <h1>{{ $reportTitle }}</h1>
         <p class="subtitle">{{ $reportSubtitle }}</p>
@@ -49,7 +54,6 @@
         </tr>
         <tr>
             <td><span class="meta-label">Responsable del reporte</span><span class="meta-value">{{ $generatedBy }}</span></td>
-            <td><span class="meta-label">Administración</span><span class="meta-value">{{ $administrators }}</span></td>
         </tr>
     </table>
 
@@ -90,9 +94,7 @@
         </section>
     @endforeach
 
-    <footer class="footer">
-        Documento generado por {{ $branding->name }}. Información del fundo activo al momento de exportación.
-        <span class="page">Página </span>
-    </footer>
+    @include('pdf.partials.signatures')
+    @include('pdf.partials.footer')
 </body>
 </html>

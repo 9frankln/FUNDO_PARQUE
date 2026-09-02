@@ -87,7 +87,7 @@ class UserSessionService
             return false;
         }
 
-        if (! $record->last_activity_at?->gte(now()->subMinutes($this->idleTimeoutFor($user)))) {
+        if (! $record->last_activity_at?->gte(now()->subMinutes($this->idleTimeoutFor($user) + 2))) {
             $this->revoke($record, null, 'expired');
 
             return false;
@@ -178,8 +178,21 @@ class UserSessionService
 
     public function idleTimeoutFor(User $user): int
     {
+        $isAdmin = $user->esAdministrador();
+
+        // Sesión sin límite: administrador con valor null → nunca cierra por inactividad.
+        if ($isAdmin && $user->session_idle_timeout_minutes === null) {
+            return 525600;
+        }
+
         $maximum = max(5, (int) config('session.lifetime', 30));
 
+        // Administrador: respeta el tiempo programado (5 min – 1 año).
+        if ($isAdmin) {
+            return min(525600, max(5, (int) $user->session_idle_timeout_minutes));
+        }
+
+        // Usuario estándar: tope = lifetime de la sesión (config).
         return min($maximum, max(5, (int) ($user->session_idle_timeout_minutes ?: $maximum)));
     }
 
@@ -244,7 +257,7 @@ class UserSessionService
 
     private function limitFor(User $user): int
     {
-        if ((int) $user->max_active_sessions === 0) {
+        if ($user->esAdministrador() || (int) $user->max_active_sessions === 0) {
             return PHP_INT_MAX;
         }
 

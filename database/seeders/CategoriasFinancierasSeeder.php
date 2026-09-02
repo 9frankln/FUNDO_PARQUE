@@ -24,6 +24,8 @@ class CategoriasFinancierasSeeder extends Seeder
             ['tipo' => 'egreso', 'nombre' => 'Alimentos'],
             ['tipo' => 'egreso', 'nombre' => 'Compra de Animales'],
             ['tipo' => 'egreso', 'nombre' => 'Compra de Forrajes'],
+            ['tipo' => 'egreso', 'nombre' => 'Asignación Familiar'],
+            ['tipo' => 'egreso', 'nombre' => 'Insumos y Materiales'],
             ['tipo' => 'egreso', 'nombre' => 'Otros Egresos'],
         ];
 

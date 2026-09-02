@@ -11,7 +11,7 @@ class RolesPermisosSeeder extends Seeder
     public function run(): void
     {
         // Crear todos los permisos
-        $modulos = ['animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo', 'ajustes', 'buscador'];
+        $modulos = ['animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo', 'medicamentos', 'ajustes', 'buscador'];
         $acciones = ['crear', 'leer', 'actualizar', 'eliminar', 'exportar'];
 
         $todosPermisos = [];
@@ -40,30 +40,30 @@ class RolesPermisosSeeder extends Seeder
         ])->id;
 
         // Roles globales (fundo_id = null)
-        $admin = Role::firstOrCreate(
+        $admin = Role::updateOrCreate(
             ['nombre' => 'Administrador General', 'fundo_id' => null],
             ['descripcion' => 'Acceso total a todos los módulos y seguridad.', 'es_protegido' => true]
         );
         $admin->permisos()->sync($todosPermisos);
 
-        $supervisor = Role::firstOrCreate(
+        $supervisor = Role::updateOrCreate(
             ['nombre' => 'Supervisor de Producción', 'fundo_id' => null],
             ['descripcion' => 'Engorde, leche y queso con gestión completa.', 'es_protegido' => true]
         );
         $permisosSupervisor = Permiso::whereIn('modulo', ['leche', 'queso', 'engorde'])->pluck('id');
         $supervisor->permisos()->sync($permisosSupervisor);
 
-        $veterinario = Role::firstOrCreate(
+        $veterinario = Role::updateOrCreate(
             ['nombre' => 'Veterinario', 'fundo_id' => null],
             ['descripcion' => 'Monitoreo completo; consulta y exportación de animales.', 'es_protegido' => true]
         );
-        $permisosVet = Permiso::where('modulo', 'monitoreo')
+        $permisosVet = Permiso::whereIn('modulo', ['monitoreo', 'medicamentos'])
             ->orWhere(function ($q) {
                 $q->where('modulo', 'animal')->whereIn('accion', ['leer', 'exportar']);
             })->pluck('id');
         $veterinario->permisos()->sync($permisosVet);
 
-        $operario = Role::firstOrCreate(
+        $operario = Role::updateOrCreate(
             ['nombre' => 'Operario de Ordeño', 'fundo_id' => null],
             ['descripcion' => 'Registro y consulta de producción de leche.', 'es_protegido' => true]
         );
@@ -71,32 +71,32 @@ class RolesPermisosSeeder extends Seeder
             ->whereIn('accion', ['crear', 'leer'])->pluck('id');
         $operario->permisos()->sync($permisosOperario);
 
-        $contador = Role::firstOrCreate(
+        $contador = Role::updateOrCreate(
             ['nombre' => 'Contador', 'fundo_id' => null],
             ['descripcion' => 'Finanzas con gestión y exportación.', 'es_protegido' => true]
         );
         $permisosContador = Permiso::where('modulo', 'finanzas')->pluck('id');
         $contador->permisos()->sync($permisosContador);
 
-        $visitante = Role::firstOrCreate(
+        $visitante = Role::updateOrCreate(
             ['nombre' => 'Visitante / Analista', 'fundo_id' => null],
             ['descripcion' => 'Solo lectura y exportación de datos operativos y financieros.', 'es_protegido' => true]
         );
         $visitante->permisos()->sync(
             Permiso::query()
-                ->whereIn('modulo', ['animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo'])
+                ->whereIn('modulo', ['animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo', 'medicamentos'])
                 ->whereIn('accion', ['leer', 'exportar'])
                 ->orWhere(fn ($query) => $query->where('modulo', 'buscador')->where('accion', 'leer'))
                 ->pluck('id')
         );
 
-        $auditor = Role::firstOrCreate(
+        $auditor = Role::updateOrCreate(
             ['nombre' => 'Auditor', 'fundo_id' => null],
             ['descripcion' => 'Consulta integral y exportación de auditoría, sin cambios operativos.', 'es_protegido' => true]
         );
         $auditor->permisos()->sync(
             Permiso::query()
-                ->whereIn('modulo', ['animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo'])
+                ->whereIn('modulo', ['animal', 'engorde', 'leche', 'queso', 'finanzas', 'monitoreo', 'medicamentos'])
                 ->where('accion', 'leer')
                 ->orWhere(fn ($query) => $query->where('modulo', 'buscador')->where('accion', 'leer'))
                 ->orWhere(fn ($query) => $query->where('modulo', 'auditoria')->whereIn('accion', ['leer', 'exportar']))

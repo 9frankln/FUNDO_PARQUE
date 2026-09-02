@@ -10,9 +10,9 @@ final class ImageFrame
         'zoom' => 1.0,
     ];
 
-    public const MIN_ZOOM = 1;
+    public const MIN_ZOOM = 0.3;
 
-    public const MAX_ZOOM = 2.5;
+    public const MAX_ZOOM = 4.0;
 
     public static function normalize(mixed $value): array
     {

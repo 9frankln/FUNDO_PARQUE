@@ -57,11 +57,13 @@ class EngordeDetailedReportTest extends TestCase
         Livewire::test(Show::class, ['id' => $lot->id])
             ->call('exportDetailedReport', ['codigo', 'nombre', 'peso_inicial', 'ganancia_kg'])
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
 
         Livewire::test(Index::class)
             ->call('exportDetailedReport', 'selected', [(string) $lot->id], ['codigo', 'nombre', 'ganancia_kg'])
             ->assertHasNoErrors()
+            ->call('downloadCurrentPdf')
             ->assertFileDownloaded();
 
         Livewire::test(Index::class)

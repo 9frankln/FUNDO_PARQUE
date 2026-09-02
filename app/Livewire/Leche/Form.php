@@ -129,6 +129,14 @@ class Form extends Component
 
         if ($this->tipoRegistro === 'individual') {
             $this->loadVacas();
+        } else {
+            // En modo lote, autocompletar con las vacas aptas para este turno
+            // (las mismas que aparecerían en el detalle individual). Solo cuando
+            // hay vacas disponibles; si no, se conserva el valor actual.
+            $available = $this->queryAllowedVacas()->count();
+            if ($available > 0) {
+                $this->cantidadVacas = (string) $available;
+            }
         }
     }
 
@@ -137,6 +145,13 @@ class Form extends Component
         $this->reset('foto');
         $this->photoConfirmed = false;
         $this->loadDailyPhoto();
+
+        if ($this->tipoRegistro === 'lote') {
+            $available = $this->queryAllowedVacas()->count();
+            if ($available > 0) {
+                $this->cantidadVacas = (string) $available;
+            }
+        }
     }
 
     public function updatedFoto()
@@ -486,14 +501,14 @@ class Form extends Component
 
         session()->flash('swal', [
             'icon' => 'success',
-            'title' => $this->isEdit ? 'Ordeño actualizado' : 'Ordeño registrado',
+            'title' => $this->isEdit ? '¡Actualizado!' : '¡Registrado!',
             'text' => $this->isEdit
                 ? 'Los datos del ordeño se actualizaron correctamente.'
                 : 'El ordeño se registró correctamente.',
         ]);
         $this->publishRecentRecord('leche.ordenos', $ordeno);
 
-        return redirect()->route('leche.index');
+        return $this->redirectRoute('leche.index', navigate: true);
     }
 
     public function render()
@@ -539,6 +554,15 @@ class Form extends Component
             ])
             ->filter(fn (Animal $animal) => in_array($animal->id, $historicalAnimalIds, true)
                 || $animal->canBeMarkedForMilking($referenceDate))
+            ->values()
+            ->map(fn (Animal $animal) => [
+                'id' => $animal->id,
+                'arete' => $animal->arete,
+                'nombre' => $animal->nombre,
+                'raza' => $animal->raza?->nombre ?? 'Sin raza',
+                'especie' => $animal->especie?->nombre ?? 'Sin especie',
+                'genero' => $animal->genero,
+            ])
             ->values();
     }
 

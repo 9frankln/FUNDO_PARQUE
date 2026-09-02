@@ -17,7 +17,7 @@
             <div class="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-rose-400/10 blur-2xl transition-all duration-500 group-hover:bg-rose-400/20"></div>
             <div class="relative flex items-center justify-between">
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Animales Enfermos</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Animales en seguimiento</p>
                     <p class="mt-1 text-3xl font-black text-rose-600 dark:text-rose-400">{{ $data['animalesEnfermos'] ?? 0 }}</p>
                 </div>
                 <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100/50 text-xl shadow-inner dark:bg-rose-900/30">
@@ -25,7 +25,7 @@
                 </div>
             </div>
             <div class="mt-4 flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                <span class="text-rose-500">En tratamiento actual</span>
+                <span class="text-rose-500">Seguimiento activo</span>
             </div>
         </div>
 
@@ -68,7 +68,7 @@
             <div class="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-rose-400/10 blur-2xl transition-all duration-500 group-hover:bg-rose-400/20"></div>
             <div class="relative flex items-center justify-between">
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Histórico Clínico</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Eventos de salud</p>
                     <p class="mt-1 text-3xl font-black text-zinc-900 dark:text-white">{{ $data['totalSanidad'] ?? 0 }}</p>
                 </div>
                 <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100/50 text-xl shadow-inner dark:bg-rose-900/30">
@@ -76,7 +76,7 @@
                 </div>
             </div>
             <div class="mt-4 flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                <span class="text-zinc-500">Atenciones totales</span>
+                <span class="text-zinc-500">Historial completo</span>
             </div>
         </div>
     </div>
@@ -85,8 +85,8 @@
     <div class="relative overflow-hidden rounded-[2.5rem] border border-zinc-200/60 bg-white/60 p-8 shadow-sm backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-800/50">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-                <h3 class="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Incidencias de Sanidad</h3>
-                <p class="mt-1 text-sm font-semibold text-zinc-500">Casos registrados agrupados por mes</p>
+                <h3 class="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Eventos de salud por mes</h3>
+                <p class="mt-1 text-sm font-semibold text-zinc-500">Eventos registrados agrupados por mes</p>
             </div>
             
             <div class="flex items-center gap-4">
@@ -94,7 +94,7 @@
                 <div class="hidden items-center gap-6 rounded-2xl bg-zinc-100/50 px-4 py-2 dark:bg-zinc-900/50 sm:flex">
                     <div class="flex flex-col">
                         <span class="text-[10px] font-bold uppercase text-zinc-500">Total</span>
-                        <span class="text-sm font-black text-rose-600 dark:text-rose-400"><span x-text="periodCount"></span> casos</span>
+                        <span class="text-sm font-black text-rose-600 dark:text-rose-400"><span x-text="periodCount"></span> eventos</span>
                     </div>
                 </div>
 
@@ -153,18 +153,18 @@
                            @click="selectPeriod(selectedPeriod === month.period ? '' : month.period)">
                             
                             <!-- Highlight Area -->
-                            <rect x-show="activePoint === index || selectedPeriod === month.period"
-                                  :x="pointX(index) - 15" y="10" width="30" height="200"
+                            <rect x-show="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period)"
+                                  :x="(typeof pointX === 'function' ? pointX(index) : 0) - 15" y="10" width="30" height="200"
                                   class="fill-zinc-100/50 dark:fill-zinc-700/30 rx-4" rx="4" />
                             
-                            <line x-show="activePoint === index || selectedPeriod === month.period"
-                                  :x1="pointX(index)" y1="20" :x2="pointX(index)" y2="205"
+                            <line x-show="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period)"
+                                  :x1="typeof pointX === 'function' ? pointX(index) : 0" y1="20" :x2="typeof pointX === 'function' ? pointX(index) : 0" y2="205"
                                   class="stroke-rose-500 dark:stroke-rose-400" stroke-dasharray="4 4" stroke-width="2" />
 
-                            <circle :cx="pointX(index)" :cy="pointY(month.count)"
-                                    :r="activePoint === index || selectedPeriod === month.period ? 8 : 5"
+                            <circle :cx="typeof pointX === 'function' ? pointX(index) : 0" :cy="typeof pointY === 'function' ? pointY(month.count) : 0"
+                                    :r="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period) ? 8 : 5"
                                     class="fill-white stroke-rose-500 transition-all duration-300 dark:fill-zinc-900 dark:stroke-rose-400"
-                                    :stroke-width="activePoint === index || selectedPeriod === month.period ? 4 : 3" />
+                                    :stroke-width="(typeof activePoint !== 'undefined' && activePoint === index) || (typeof selectedPeriod !== 'undefined' && selectedPeriod === month.period) ? 4 : 3" />
                         </g>
                     </template>
                 </svg>
@@ -186,7 +186,7 @@
             <div x-show="activeMonth" x-transition.opacity class="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-6 rounded-2xl border border-zinc-200/80 bg-white/95 px-6 py-3 shadow-2xl backdrop-blur-xl dark:border-zinc-700/80 dark:bg-zinc-800/95 pointer-events-none">
                 <div class="flex flex-col">
                     <span class="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400" x-text="activeMonth?.fullLabel"></span>
-                    <span class="text-xl font-black text-rose-600 dark:text-rose-400"><span x-text="activeMonth?.count ? Number(activeMonth.count) : 0"></span> casos</span>
+                    <span class="text-xl font-black text-rose-600 dark:text-rose-400"><span x-text="activeMonth?.count ? Number(activeMonth.count) : 0"></span> eventos</span>
                 </div>
             </div>
         </div>
@@ -196,7 +196,7 @@
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 mt-6">
         <!-- Breakdown: Clasificaciones de Sanidad -->
         <div class="rounded-[1.5rem] border border-zinc-200/60 bg-white/60 p-6 shadow-sm backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-800/50">
-            <h3 class="mb-4 text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-white">Clasificación de Sanidad</h3>
+            <h3 class="mb-4 text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-white">Categorías de salud</h3>
             <div class="space-y-4">
                 @forelse($data['clasificaciones'] as $index => $item)
                     @php
@@ -224,7 +224,7 @@
 
         <!-- Breakdown: Tipos de Partos -->
         <div class="rounded-[1.5rem] border border-zinc-200/60 bg-white/60 p-6 shadow-sm backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-800/50">
-            <h3 class="mb-4 text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-white">Tipos de Partos Histórico</h3>
+            <h3 class="mb-4 text-sm font-black uppercase tracking-wider text-zinc-900 dark:text-white">Tipos de Partos</h3>
             <div class="space-y-4">
                 @forelse($data['partos'] as $index => $item)
                     @php

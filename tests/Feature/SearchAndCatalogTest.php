@@ -22,7 +22,7 @@ class SearchAndCatalogTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_search_is_sqlite_compatible_and_hides_unauthorized_modules(): void
+    public function test_search_hides_unauthorized_modules(): void
     {
         [$user, $fundo] = $this->userWithFundo();
         $role = Role::create(['nombre' => 'Buscador animal', 'fundo_id' => $fundo->id]);
@@ -100,11 +100,17 @@ class SearchAndCatalogTest extends TestCase
         ]);
         $this->actingAs($user)->withSession(['fundo_id' => $fundo->id]);
 
-        $this->assertEqualsCanonicalizing(
-            [$global->id, $current->id],
-            CategoriaFinanciera::pluck('id')->all()
+        // El scope global expone categorías globales (fundo_id null) + las del fundo actual.
+        // Existe la categoría global "Asignación Familiar" (seed de migración), además de
+        // $global y $current; la categoría de otro fundo ($other) queda oculta.
+        $visibleIds = CategoriaFinanciera::pluck('id')->all();
+        $this->assertContains($global->id, $visibleIds);
+        $this->assertContains($current->id, $visibleIds);
+        $this->assertNotContains($other->id, $visibleIds);
+        $this->assertContains(
+            CategoriaFinanciera::where('fundo_id', null)->where('nombre', 'Asignación Familiar')->value('id'),
+            $visibleIds
         );
-        $this->assertNotContains($other->id, CategoriaFinanciera::pluck('id')->all());
 
         $movement = Movimiento::create([
             'fundo_id' => $fundo->id,

@@ -9,6 +9,9 @@ use App\Models\Ordeno;
 use App\Models\OrdenoFotoDiaria;
 use App\Support\ImageFrame;
 use App\Traits\AuthorizesPermissions;
+use App\Support\PaginationOptions;
+use App\Traits\HasPdfPreviewModal;
+use App\Traits\HasPeriodoFilters;
 use App\Traits\HasRecentRecord;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
@@ -21,17 +24,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use AuthorizesPermissions, HasRecentRecord, WithPagination;
-
-    public $fechaDesde = '';
-
-    public $fechaHasta = '';
-
-    public $periodo = '';
-
-    public $anio = '';
-
-    public $mes = '';
+    use AuthorizesPermissions, HasPdfPreviewModal, HasPeriodoFilters, HasRecentRecord, WithPagination;
 
     public $turno = '';
 
@@ -51,9 +44,7 @@ class Index extends Component
 
     public $sortDir = 'desc';
 
-    public $showExportModal = false;
-
-    public $exportFormat = 'xlsx';
+    public $exportFormat = 'pdf';
 
     public $selectedColumns = [
         'fecha',
@@ -107,7 +98,7 @@ class Index extends Component
         'created_at',
     ];
 
-    private const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+    private const PER_PAGE_OPTIONS = PaginationOptions::PER_PAGE;
 
     public function updated($property): void
     {
@@ -126,54 +117,6 @@ class Index extends Component
         ], true)) {
             $this->resetPage();
         }
-    }
-
-    public function updatedPeriodo($value): void
-    {
-        if ($value !== '') {
-            $this->reset(['anio', 'mes', 'fechaDesde', 'fechaHasta']);
-        }
-
-        $this->resetPage();
-    }
-
-    public function updatedAnio($value): void
-    {
-        $this->reset(['periodo', 'fechaDesde', 'fechaHasta']);
-
-        if ($value === '') {
-            $this->mes = '';
-        }
-
-        $this->resetPage();
-    }
-
-    public function updatedMes($value): void
-    {
-        if ($value !== '' && $this->anio === '') {
-            $this->anio = (string) now()->year;
-        }
-
-        $this->reset(['periodo', 'fechaDesde', 'fechaHasta']);
-        $this->resetPage();
-    }
-
-    public function updatedFechaDesde($value): void
-    {
-        if ($value !== '') {
-            $this->reset(['periodo', 'anio', 'mes']);
-        }
-
-        $this->resetPage();
-    }
-
-    public function updatedFechaHasta($value): void
-    {
-        if ($value !== '') {
-            $this->reset(['periodo', 'anio', 'mes']);
-        }
-
-        $this->resetPage();
     }
 
     public function updatedPerPage($value): void
@@ -306,7 +249,11 @@ class Index extends Component
         $selectedColumns = array_values($this->selectedColumns);
         $filters = $this->exportFilters();
         $generatedBy = auth()->user()->name;
-        $this->showExportModal = false;
+        // Solo cerrar el modal de opciones para descarga directa (xlsx).
+        // Para PDF, setPdfPreview lo mantiene/abre en preview.
+        if ($this->exportFormat === 'xlsx') {
+            $this->showExportModal = false;
+        }
 
         if ($this->exportFormat === 'xlsx') {
             return (new OrdenosExport($fundoId, $selectedColumns, $filters, $generatedBy))
@@ -331,6 +278,8 @@ class Index extends Component
             ->map(fn ($column) => $this->availableColumns[$column])
             ->join(', ', ' y ').'.';
         $filterSummary = $this->filterSummary();
+        $includeSignatures = $this->pdfIncludeSignatures;
+        $scale = $this->pdfScale;
 
         $pdf = Pdf::loadView('pdf.ordenos', compact(
             'ordenos',
@@ -340,13 +289,16 @@ class Index extends Component
             'generatedAt',
             'administrators',
             'reportSummary',
-            'filterSummary'
-        ));
+            'filterSummary',
+            'includeSignatures',
+            'scale'
+        ))->setPaper('a4', 'landscape');
 
-        return response()->streamDownload(
-            fn () => print ($pdf->output()),
+        return $this->setPdfPreview(
+            $pdf,
             'registro_ordeno_'.now()->format('Ymd_His').'.pdf',
-            ['Content-Type' => 'application/pdf']
+            'Producción de Leche y Ordeños',
+            $ordenos->count()
         );
     }
 
