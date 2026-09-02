@@ -47,6 +47,8 @@
             lastWidth: window.innerWidth,
             reqId: 0,
             isRenderingCanvas: false,
+            renderBusy: false,
+            pendingRenderUrl: null,
             activeLoadingTask: null,
             activeRenderTasks: [],
             openFormatMenu: false,
@@ -62,12 +64,12 @@
                     if (Math.abs(currentWidth - this.lastWidth) > 50) {
                         this.lastWidth = currentWidth;
                         if (this.pdfUrl) {
-                            this.renderPdfPages(this.pdfUrl, ++this.reqId);
+                            this.requestRender(this.pdfUrl);
                         }
                     }
                 });
                 if (this.pdfUrl) {
-                    this.renderPdfPages(this.pdfUrl, ++this.reqId);
+                    this.requestRender(this.pdfUrl);
                 }
                 if (window.Livewire) {
                     Livewire.on('pdf-preview-ready', (event) => {
@@ -97,7 +99,22 @@
                 if (!newUrl || newUrl === this.lastProcessedUrl) return;
                 this.lastProcessedUrl = newUrl;
                 this.pdfUrl = newUrl;
-                this.renderPdfPages(newUrl, ++this.reqId);
+                this.requestRender(newUrl);
+            },
+            // Cola de render: evita lanzar renders en paralelo que abortan el fetch del PDF.
+            requestRender(url) {
+                this.pendingRenderUrl = url;
+                if (this.renderBusy) return;
+                this.renderBusy = true;
+                const run = async () => {
+                    while (this.pendingRenderUrl) {
+                        const u = this.pendingRenderUrl;
+                        this.pendingRenderUrl = null;
+                        await this.renderPdfPages(u, ++this.reqId);
+                    }
+                    this.renderBusy = false;
+                };
+                run();
             },
             async loadPdfJs() {
                 if (window.pdfjsLib) return;
@@ -177,11 +194,15 @@
                     if (this.reqId !== thisReq) return;
                     container.replaceChildren(fragment);
 
-                    for (const item of canvasList) {
+                    for (let i = 0; i < canvasList.length; i++) {
                         if (this.reqId !== thisReq) return;
+                        const item = canvasList[i];
                         const renderTask = item.page.render({ canvasContext: item.ctx, viewport: item.viewport });
                         this.activeRenderTasks.push(renderTask);
                         await renderTask.promise;
+                        if (i === 0 && this.reqId === thisReq) {
+                            this.isRenderingCanvas = false;
+                        }
                     }
                 } catch (e) {
                     if (this.reqId === thisReq) {
@@ -442,9 +463,22 @@
                     </div>
                 </div>
 
-                {{-- VISOR DE PDF DE ALTA VELOCIDAD ZERO-FLICKER (DOBLE BUFFER) --}}
-                <div class="relative flex-1 min-h-0 overflow-hidden bg-zinc-900 flex flex-col">
-                    {{-- INDICADOR DE CARGA FLOTANTE SUTIL EN ESQUINA SUPERIOR DERECHA --}}
+                {{-- VISOR DE PDF DE ALTA VELOCIDAD ZERO-FLICKER --}}
+                <div class="relative flex-1 min-h-0 overflow-hidden bg-zinc-950 flex flex-col">
+                    {{-- INDICADOR DE PROCESAMIENTO / RENDERIZADO FLOTANTE SUTIL EN ESQUINA SUPERIOR DERECHA --}}
+                    <div x-cloak x-show="isRenderingCanvas"
+                         x-transition:enter="transition ease-out duration-150"
+                         x-transition:enter-start="opacity-0 -translate-y-2"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 translate-y-0"
+                         x-transition:leave-end="opacity-0 -translate-y-2"
+                         class="absolute top-3 right-3 z-30 pointer-events-none">
+                        <div class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-zinc-950/90 px-3 py-1.5 text-xs font-bold text-emerald-400 shadow-xl backdrop-blur-md">
+                            <svg class="h-3.5 w-3.5 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            <span class="text-[11px]">Procesando documento...</span>
+                        </div>
+                    </div>
                     <div wire:loading wire:target="setPdfScale, setPdfSignatureScale, togglePdfSignatures, setPdfTableColorMode, setPdfTablePreset, exportar, exportDetailedReport, signAndDownloadCurrentPdf"
                          class="absolute top-3 right-3 z-30 pointer-events-none transition-opacity">
                         <div class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-zinc-950/85 px-3 py-1.5 text-xs font-bold text-emerald-400 shadow-xl backdrop-blur-md">
@@ -453,19 +487,16 @@
                         </div>
                     </div>
 
+                    {{-- Línea de carga sutil ultra-delgada en borde superior --}}
+                    <div x-show="isRenderingCanvas" class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 animate-pulse z-30"></div>
+
                     @if($pdfPreviewToken || $pdfPreviewData)
                         {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON AJUSTE COMPLETO AL ANCHO) --}}
                         <div x-ref="pdfScrollContainer"
                              class="relative w-full flex-1 min-h-0 overflow-y-auto p-1 sm:p-2 bg-zinc-950 flex flex-col items-center select-none"
                              style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
-                            
-                            {{-- Indicador de carga / renderizado --}}
-                            <div x-show="isRenderingCanvas" class="flex flex-col items-center justify-center py-12 gap-3 text-zinc-400">
-                                <svg class="h-7 w-7 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                <span class="text-xs font-bold text-zinc-300">Cargando documento en alta resolución...</span>
-                            </div>
 
-                            {{-- Contenedor de páginas renderizadas con sombra y separación --}}
+                            {{-- Contenedor de páginas renderizadas directo al tope sin huecos negros --}}
                             <div wire:ignore x-ref="pdfCanvasContainer" class="w-full flex flex-col items-center"></div>
                         </div>
 
