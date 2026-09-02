@@ -139,6 +139,8 @@ class Index extends Component
 
     public function openReportModal(): void
     {
+        $this->loadPdfConfigDefaults();
+        $this->applyPdfConfigOverrides();
         $this->authorizePermission('finanzas', 'exportar');
         $this->reportType = 'movimientos';
         $this->selectedReportSections = ['summary'];
@@ -157,6 +159,7 @@ class Index extends Component
         }
 
         $this->authorizePermission('finanzas', 'exportar');
+        $this->applyPdfConfigOverrides();
         [$sections, $selectedColumns] = $this->validatedReportSelection();
         $fundoId = (int) session('fundo_id');
         abort_unless($fundoId, 403, 'Debe seleccionar un fundo.');
@@ -196,6 +199,11 @@ class Index extends Component
             'Reporte Financiero de Movimientos',
             $records->count()
         );
+    }
+
+    public function exportar()
+    {
+        return $this->downloadReport();
     }
 
     public function updated($property): void

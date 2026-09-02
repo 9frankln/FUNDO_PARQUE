@@ -3,63 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ $report['title'] }} | {{ $branding->name }}</title>
-    <style>
-        @page { size: A4 landscape; margin: 14mm 10mm 16mm 10mm; }
-        * { box-sizing: border-box; }
-        body { margin: 0; color: #26342d; font-family: DejaVu Sans, sans-serif; font-size: 7.5pt; line-height: 1.3; }
-        
-        /* Dynamic Theme styles */
-        @php
-            $isViolet = $report['type'] === 'asignaciones';
-            $primaryColor = $isViolet ? '#8b5cf6' : '#10b981';
-            $secondaryBg = $isViolet ? '#faf5ff' : '#f4fbf7';
-            $eyebrowColor = $isViolet ? '#7c3aed' : '#059669';
-            $sectionBg = $isViolet ? '#fdfcff' : '#f9fdfa';
-            $tableHeaderBg = $isViolet ? '#f5f3ff' : '#f0fdf4';
-            $tableHeaderColor = $isViolet ? '#6d28d9' : '#065f46';
-            $tableHeaderBorder = $isViolet ? '#ede9fe' : '#d1fae5';
-            $altPrimary = $isViolet ? '#581c87' : '#2b6279';
-            $altSectionBg = $isViolet ? '#faf5ff' : '#f2f7f9';
-            $altHeaderBg = $isViolet ? '#6b21a8' : '#336b82';
-            $altHeaderColor = '#ffffff';
-            $altBorder = $isViolet ? '#e9d5ff' : '#d4e3ea';
-            $altRowBg = $isViolet ? '#fdfaff' : '#f9fbfc';
-        @endphp
+    @php
+        $scale = (string) ($scale ?? '85');
+        $tableFontSize = match($scale) {
+            '40', '45' => '5.2pt',
+            '50', '55' => '5.8pt',
+            '65' => '6.4pt',
+            '75' => '7.0pt',
+            '85' => '7.5pt',
+            default => '8.0pt',
+        };
+        $thFontSize = match($scale) {
+            '40', '45' => '4.8pt',
+            '50', '55' => '5.4pt',
+            '65' => '6.0pt',
+            '75' => '6.6pt',
+            '85' => '7.0pt',
+            default => '7.5pt',
+        };
+        $tableCellPad = match($scale) {
+            '40', '45' => '1.5pt 2.5pt',
+            '50', '55' => '2pt 3pt',
+            '65' => '2.5pt 3.5pt',
+            '75' => '3pt 4pt',
+            '85' => '3.5pt 4.5pt',
+            default => '4.5pt 5.5pt',
+        };
+        $cardLabelSize = match($scale) {
+            '40', '45' => '4.8pt',
+            '50', '55' => '5.2pt',
+            '65' => '5.6pt',
+            '75' => '6.0pt',
+            '85' => '6.3pt',
+            default => '6.7pt',
+        };
 
-        .header { padding: 9pt 11pt; border-left: 4px solid {{ $primaryColor }}; border-radius: 4px; background: linear-gradient(90deg, {{ $secondaryBg }} 0%, #ffffff 100%); margin-bottom: 7pt; }
-        .eyebrow { margin: 0 0 2pt; color: {{ $eyebrowColor }}; font-size: 6.2pt; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
-        h1 { margin: 0; color: #14231b; font-size: 15pt; line-height: 1.1; }
-        .subtitle { margin: 3px 0 0; color: #627168; font-size: 7.2pt; }
+        $isViolet = $report['type'] === 'asignaciones';
+        $isMono = $pdfConfig->modoColorTablas() === 'mono';
+        $primaryColor = $isMono ? $pdfConfig->accentColor() : ($isViolet ? '#8b5cf6' : '#059669');
+        $darkColor = $isMono ? $pdfConfig->accentDark() : ($isViolet ? '#5b21b6' : '#065f46');
+        $softColor = $isMono ? $pdfConfig->accentSoft() : ($isViolet ? '#f5f3ff' : '#f0fdf4');
+        $borderColor = $isMono ? $pdfConfig->accentBorder() : ($isViolet ? '#ddd6fe' : '#a7f3d0');
+        $evenColor = $isMono ? $pdfConfig->accentRowEven() : ($isViolet ? '#fdfaff' : '#f9fdfa');
+        $radius = $pdfConfig->tableBorderRadius();
+    @endphp
+    <style>
+        @page { size: A4 landscape; margin: 12mm 10mm 14mm 10mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #1e293b; font-family: DejaVu Sans, sans-serif; font-size: {{ $tableFontSize }}; line-height: 1.25; }
+
+        .header { padding: 6pt 10pt; border-left: 4px solid {{ $primaryColor }}; border-radius: {{ $radius }}; background: {{ $softColor }}; margin-bottom: 5pt; }
+        .eyebrow { margin: 0 0 1.5pt; color: {{ $primaryColor }}; font-size: 6.2pt; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; }
+        h1 { margin: 0; color: {{ $darkColor }}; font-size: 13.5pt; line-height: 1.1; font-weight: 900; }
+        .subtitle { margin: 2px 0 0; color: #475569; font-size: 7.2pt; }
         
-        .meta { width: 100%; margin-top: 5pt; margin-bottom: 5pt; border-collapse: collapse; table-layout: fixed; }
-        .meta td { padding: 4pt 6pt; border: 1px solid #dbe5de; background: #fbfdfc; font-size: 7.2pt; }
-        .meta-label { display: block; color: #708078; font-size: 5.8pt; font-weight: bold; text-transform: uppercase; }
-        .meta-value { display: block; margin-top: 1px; color: #25372d; font-size: 7.2pt; font-weight: bold; }
+        .meta { width: 100%; margin-top: 4pt; margin-bottom: 4pt; border-collapse: collapse; table-layout: fixed; }
+        .meta td { padding: 3pt 5pt; border: 1px solid {{ $borderColor }}; background: {{ $softColor }}; font-size: 7pt; }
+        .meta-label { display: block; color: {{ $darkColor }}; font-size: 5.6pt; font-weight: bold; text-transform: uppercase; }
+        .meta-value { display: block; margin-top: 1px; color: #1e293b; font-size: 7pt; font-weight: bold; }
         
-        .section { margin-top: 7pt; }
-        .section-title { margin: 0 0 4pt; padding: 4pt 6pt; border-left: 3px solid {{ $primaryColor }}; background: {{ $sectionBg }}; color: {{ $eyebrowColor }}; font-size: 8pt; font-weight: bold; }
-        .section-alt-title { margin: 0 0 4pt; padding: 4pt 6pt; border-left: 3px solid {{ $altPrimary }}; background: {{ $altSectionBg }}; color: {{ $altPrimary }}; font-size: 8pt; font-weight: bold; }
+        .section { margin-top: 5pt; page-break-inside: auto; }
+        .section-title { margin: 0 0 3pt; padding: 2.5pt 5pt; border-left: 3px solid {{ $primaryColor }}; background: {{ $softColor }}; color: {{ $darkColor }}; font-size: {{ $thFontSize }}; font-weight: bold; }
+        .section-alt-title { margin: 0 0 3pt; padding: 2.5pt 5pt; border-left: 3px solid {{ $darkColor }}; background: {{ $softColor }}; color: {{ $darkColor }}; font-size: {{ $thFontSize }}; font-weight: bold; }
         
-        .summary { width: 100%; border-collapse: separate; border-spacing: 3pt 0; table-layout: fixed; }
-        .summary td { padding: 5pt 6pt; border: 1px solid #d8e5dd; background: #fbfdfc; vertical-align: top; }
-        .summary-label { display: block; color: #718078; font-size: 5.8pt; font-weight: bold; letter-spacing: .3px; text-transform: uppercase; }
-        .summary-value { display: block; margin-top: 2px; font-size: 9pt; font-weight: bold; }
+        .summary-wrap { margin-top: 3pt; margin-bottom: 5pt; page-break-inside: avoid; }
+        .summary-heading { background: {{ $primaryColor }}; color: #ffffff; padding: 2.5pt 5pt; font-size: {{ $thFontSize }}; font-weight: bold; border-radius: {{ $radius }} {{ $radius }} 0 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .summary-table th { padding: {{ $tableCellPad }}; border: 1px solid {{ $borderColor }}; background: {{ $softColor }}; color: {{ $darkColor }}; font-size: {{ $thFontSize }}; text-transform: uppercase; }
+        .summary-table td { padding: {{ $tableCellPad }}; border: 1px solid {{ $borderColor }}; font-size: {{ $tableFontSize }}; font-weight: bold; }
         
+        .compact-grid-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .compact-grid-table th { padding: {{ $tableCellPad }}; border: 1px solid {{ $borderColor }}; background: {{ $softColor }}; color: {{ $darkColor }}; font-size: {{ $thFontSize }}; text-transform: uppercase; }
+        .compact-grid-table td { padding: {{ $tableCellPad }}; border: 1px solid {{ $borderColor }}; font-size: {{ $tableFontSize }}; }
+        .compact-grid-table tbody tr:nth-child(even) td { background: {{ $evenColor }}; }
+
         .data { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .data thead { display: table-header-group; }
         .data tr { page-break-inside: avoid; }
-        .data th { padding: 3.5pt 4.5pt; border: 1px solid {{ $tableHeaderBorder }}; background: {{ $tableHeaderBg }}; color: {{ $tableHeaderColor }}; font-size: 6.5pt; text-transform: uppercase; }
-        .data td { padding: 3.5pt 4.5pt; border: 1px solid #dde6e0; color: #2d3b33; font-size: 7.2pt; vertical-align: top; word-wrap: break-word; }
-        .data tbody tr:nth-child(even) td { background: #fafcfb; }
+        .data th { padding: {{ $tableCellPad }}; border: 1px solid {{ $darkColor }}; background: {{ $primaryColor }}; color: #ffffff; font-size: {{ $thFontSize }}; text-transform: uppercase; }
+        .data td { padding: {{ $tableCellPad }}; border: 1px solid {{ $borderColor }}; color: #1e293b; font-size: {{ $tableFontSize }}; vertical-align: top; word-wrap: break-word; }
+        .data tbody tr:nth-child(even) td { background: {{ $evenColor }}; }
         
         .data-alt { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .data-alt thead { display: table-header-group; }
         .data-alt tr { page-break-inside: avoid; }
-        .data-alt th { padding: 4.5pt 5.5pt; border: 1px solid {{ $altHeaderBg }}; background: {{ $altHeaderBg }}; color: {{ $altHeaderColor }}; font-size: 6pt; text-transform: uppercase; }
-        .data-alt td { padding: 4pt 5pt; border: 1px solid {{ $altBorder }}; color: #334155; font-size: 7.2pt; vertical-align: top; word-wrap: break-word; }
-        .data-alt tbody tr:nth-child(even) td { background: {{ $altRowBg }}; }
+        .data-alt th { padding: {{ $tableCellPad }}; border: 1px solid {{ $darkColor }}; background: {{ $primaryColor }}; color: #ffffff; font-size: {{ $thFontSize }}; text-transform: uppercase; }
+        .data-alt td { padding: {{ $tableCellPad }}; border: 1px solid {{ $borderColor }}; color: #1e293b; font-size: {{ $tableFontSize }}; vertical-align: top; word-wrap: break-word; }
+        .data-alt tbody tr:nth-child(even) td { background: {{ $evenColor }}; }
         
-        .empty { padding: 10pt; border: 1px solid #dde6e0; color: #7a8980; text-align: center; }
+        .empty { padding: 8pt; border: 1px solid {{ $borderColor }}; color: #64748b; text-align: center; }
     </style>
     @include('pdf.partials.styles')
 </head>
@@ -69,11 +101,11 @@
         $recordWeights = [
             'date' => 12,
             'type' => 12,
-            'category' => 13,
+            'category' => 14,
             'beneficiary' => 20,
             'purpose' => 20,
-            'description' => 29,
-            'amount' => 12,
+            'description' => 28,
+            'amount' => 14,
         ];
 
         $aggregateWeights = [
@@ -122,15 +154,15 @@
             if ($col === 'income') return 'color: #059669;';
             if ($col === 'expenses') return 'color: #e11d48;';
             if ($col === 'balance') {
-                return strpos($val, '-') !== false ? 'color: #e11d48;' : 'color: #0369a1;';
+                return strpos($val, '-') !== false ? 'color: #e11d48;' : 'color: #0284c7;';
             }
-            return 'color: #1f3127;';
+            return 'color: #1e293b;';
         };
     @endphp
 
     <header class="header">
         @if($pdfConfig->showHeaderLogo())
-            <x-brand-logo pdf style="float: right; width: 28pt; height: 28pt; color: {{ $eyebrowColor }}; object-fit: contain" />
+            <x-brand-logo pdf style="float: right; width: 26pt; height: 26pt; color: {{ $primaryColor }}; object-fit: contain" />
         @endif
         <p class="eyebrow">{{ $branding->name }} · {{ $branding->tagline }} · Finanzas</p>
         <h1>{{ $report['title'] }}</h1>
@@ -145,7 +177,7 @@
         </tr>
     </table>
 
-    <!-- Visual Dashboard Section -->
+    <!-- Compact Analytical Tables Section: Evolución mensual + Top Categorías -->
     @php
         $grouped = $records->groupBy(fn ($r) => $r->fecha->format('Y-m'));
         $keys = $grouped->keys()->sort();
@@ -176,157 +208,168 @@
             }
         }
         
-        $chartMonths = array_slice($chartMonths, -12);
-        
-        // Max value for scaling
-        if ($report['type'] === 'movimientos') {
-            $maxVal = max(array_merge([1], array_column($chartMonths, 'income'), array_column($chartMonths, 'expenses')));
-        } else {
-            $maxVal = max(array_merge([1], array_column($chartMonths, 'amount')));
-        }
+        $tableMonths = array_slice($chartMonths, -5);
 
-        // Top 5 breakdown
+        // Top breakdown
         $topItems = [];
         $totalItemAmount = 1;
         if ($report['type'] === 'movimientos') {
             $categoryTotals = [];
             foreach ($records as $r) {
-                $catName = ($r->categoria?->nombre ?? 'Sin categoría') . ' (' . ucfirst($r->tipo) . ')';
-                $categoryTotals[$catName] = ($categoryTotals[$catName] ?? 0) + (float)$r->monto;
+                $type = ucfirst($r->tipo);
+                $catName = $r->categoria?->nombre ?? 'Sin categoría';
+                $key = $catName . '|' . $type;
+                if (!isset($categoryTotals[$key])) {
+                    $categoryTotals[$key] = [
+                        'name' => $catName,
+                        'type' => $type,
+                        'amount' => 0.0,
+                    ];
+                }
+                $categoryTotals[$key]['amount'] += (float)$r->monto;
             }
-            arsort($categoryTotals);
-            $totalItemAmount = array_sum($categoryTotals) ?: 1;
-            $topItems = array_slice($categoryTotals, 0, 5, true);
+            uasort($categoryTotals, fn ($a, $b) => $b['amount'] <=> $a['amount']);
+            $totalItemAmount = array_sum(array_column($categoryTotals, 'amount')) ?: 1;
+            $topItems = array_slice($categoryTotals, 0, 5);
         } else {
             $purposeTotals = [];
             foreach ($records as $r) {
                 $purposeName = ucfirst(str_replace('_', ' ', $r->proposito));
-                $purposeTotals[$purposeName] = ($purposeTotals[$purposeName] ?? 0) + (float)$r->monto;
+                $key = $purposeName;
+                if (!isset($purposeTotals[$key])) {
+                    $purposeTotals[$key] = [
+                        'name' => $purposeName,
+                        'type' => 'Asignación',
+                        'amount' => 0.0,
+                    ];
+                }
+                $purposeTotals[$key]['amount'] += (float)$r->monto;
             }
-            arsort($purposeTotals);
-            $totalItemAmount = array_sum($purposeTotals) ?: 1;
-            $topItems = array_slice($purposeTotals, 0, 5, true);
+            uasort($purposeTotals, fn ($a, $b) => $b['amount'] <=> $a['amount']);
+            $totalItemAmount = array_sum(array_column($purposeTotals, 'amount')) ?: 1;
+            $topItems = array_slice($purposeTotals, 0, 5);
         }
-        
-        $boxBorder = $isViolet ? '#ddd6fe' : '#a7f3d0';
-        $boxBg = $isViolet ? '#f5f3ff' : '#f0fdf4';
-        $titleColor = $isViolet ? '#5b21b6' : '#065f46';
-        $borderBottomColor = $isViolet ? '#ddd6fe' : '#d1fae5';
-        $barColor = $isViolet ? '#8b5cf6' : '#10b981';
     @endphp
 
-    <table style="width: 100%; margin-top: 5px; margin-bottom: 5px; border-collapse: collapse; table-layout: fixed;">
+    <table style="width: 100%; margin-top: 2pt; margin-bottom: 4pt; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid;">
         <tr>
-            <td style="width: 50%; padding-right: 6px; vertical-align: top;">
-                <div style="border: 1px solid {{ $boxBorder }}; background: {{ $boxBg }}; padding: 7px 9px; border-radius: 8px; height: 92pt;">
-                    <strong style="color: {{ $titleColor }}; font-size: 7.2pt; display: block; margin-bottom: 3px; border-bottom: 1px solid {{ $borderBottomColor }}; padding-bottom: 2px;">
+            <td style="width: 50%; padding-right: 4pt; vertical-align: top;">
+                <div class="summary-wrap" style="margin: 0;">
+                    <div class="summary-heading">
                         {{ $isViolet ? 'Evolución de Entregas Mensuales' : 'Evolución de Caja Mensual' }}
-                    </strong>
-                    
-                    @if(count($chartMonths) > 0)
-                        <table style="width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 4px;">
-                            <tr style="height: 40px;">
-                                @foreach($chartMonths as $bar)
-                                    @php
-                                        if ($isViolet) {
-                                            $val = $bar['amount'];
-                                            $h1 = max(round(($val / $maxVal) * 35), 1);
-                                        } else {
-                                            $valInc = $bar['income'];
-                                            $valExp = $bar['expenses'];
-                                            $h1 = max(round(($valInc / $maxVal) * 35), 1);
-                                            $h2 = max(round(($valExp / $maxVal) * 35), 1);
-                                        }
-                                    @endphp
-                                    <td style="text-align: center; vertical-align: bottom; padding: 0 1px;">
-                                        @if($isViolet)
-                                            <div style="font-size: 4.5pt; color: #5b21b6; font-weight: bold; margin-bottom: 1px;">
-                                                {{ $val > 1000 ? round($val/1000, 1).'k' : round($val) }}
-                                            </div>
-                                            <div style="background: #8b5cf6; width: 10px; height: {{ $h1 }}px; border-radius: 1.5px 1.5px 0 0; margin: 0 auto;"></div>
-                                        @else
-                                            <div style="font-size: 3.8pt; color: #374151; margin-bottom: 1px; line-height: 1;">
-                                                <span style="color:#047857;">{{ $valInc > 1000 ? round($valInc/1000, 1).'k' : round($valInc) }}</span>
-                                                <span style="color:#b91c1c;">{{ $valExp > 1000 ? round($valExp/1000, 1).'k' : round($valExp) }}</span>
-                                            </div>
-                                            <div style="white-space: nowrap; margin: 0 auto; text-align: center;">
-                                                <div style="display: inline-block; background: #10b981; width: 6px; height: {{ $h1 }}px; border-radius: 1px 1px 0 0; vertical-align: bottom;"></div>
-                                                <div style="display: inline-block; background: #ef4444; width: 6px; height: {{ $h2 }}px; border-radius: 1px 1px 0 0; vertical-align: bottom; margin-left: 1px;"></div>
-                                            </div>
-                                        @endif
-                                    </td>
-                                @endforeach
-                            </tr>
+                    </div>
+                    <table class="compact-grid-table">
+                        <thead>
                             <tr>
-                                <td colspan="{{ count($chartMonths) }}" style="padding: 1px 0;">
-                                    <div style="border-top: 1px dashed {{ $boxBorder }}; height: 1px; width: 100%;"></div>
-                                </td>
+                                @if($isViolet)
+                                    <th style="width: 50%; text-align: left;">Mes</th>
+                                    <th style="width: 50%; text-align: right;">Total Asignado</th>
+                                @else
+                                    <th style="width: 25%; text-align: left;">Mes</th>
+                                    <th style="width: 25%; text-align: right;">Ingresos</th>
+                                    <th style="width: 25%; text-align: right;">Egresos</th>
+                                    <th style="width: 25%; text-align: right;">Neto</th>
+                                @endif
                             </tr>
-                            <tr>
-                                @foreach($chartMonths as $bar)
-                                    <td style="text-align: center; font-size: 5pt; color: #4b5563; font-weight: bold; overflow: hidden; white-space: nowrap;">
-                                        {{ $bar['label'] }}
-                                    </td>
-                                @endforeach
-                            </tr>
-                        </table>
-                    @else
-                        <div style="text-align: center; color: {{ $titleColor }}; font-size: 6.8pt; padding-top: 20px; font-style: italic;">Sin datos mensuales.</div>
-                    @endif
+                        </thead>
+                        <tbody>
+                            @forelse($tableMonths as $m)
+                                <tr>
+                                    @if($isViolet)
+                                        <td style="font-weight: bold;">{{ $m['label'] }}</td>
+                                        <td style="text-align: right; font-weight: bold; color: {{ $primaryColor }};">S/. {{ number_format($m['amount'], 2) }}</td>
+                                    @else
+                                        @php $net = $m['income'] - $m['expenses']; @endphp
+                                        <td style="font-weight: bold;">{{ $m['label'] }}</td>
+                                        <td style="text-align: right; color: #059669; font-weight: bold;">S/. {{ number_format($m['income'], 2) }}</td>
+                                        <td style="text-align: right; color: #e11d48; font-weight: bold;">S/. {{ number_format($m['expenses'], 2) }}</td>
+                                        <td style="text-align: right; font-weight: bold; color: {{ $net >= 0 ? '#0284c7' : '#e11d48' }};">
+                                            S/. {{ number_format($net, 2) }}
+                                        </td>
+                                    @endif
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="{{ $isViolet ? 2 : 4 }}" style="text-align: center; color: #64748b; font-style: italic; padding: 5pt;">Sin datos de evolución mensual.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </td>
-            <td style="width: 50%; padding-left: 6px; vertical-align: top;">
-                <div style="border: 1px solid {{ $boxBorder }}; background: {{ $boxBg }}; padding: 7px 9px; border-radius: 8px; height: 92pt;">
-                    <strong style="color: {{ $titleColor }}; font-size: 7.2pt; display: block; margin-bottom: 3px; border-bottom: 1px solid {{ $borderBottomColor }}; padding-bottom: 2px;">
+            <td style="width: 50%; padding-left: 4pt; vertical-align: top;">
+                <div class="summary-wrap" style="margin: 0;">
+                    <div class="summary-heading">
                         {{ $isViolet ? 'Destinos de Asignaciones Principales' : 'Top Categorías (Ingreso y Egreso)' }}
-                    </strong>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 3px;">
-                        @forelse($topItems as $name => $amt)
-                            @php
-                                $pct = round(($amt / $totalItemAmount) * 100);
-                            @endphp
-                            <tr style="height: 12px;">
-                                <td style="width: 32%; font-size: 6.5pt; color: #1f2937; font-weight: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0.5px 0;">{{ $name }}</td>
-                                <td style="width: 48%; padding: 0.5px 0; vertical-align: middle;">
-                                    <div style="background: #e2e8f0; height: 5px; border-radius: 2.5px; overflow: hidden; width: 100%;">
-                                        <div style="background: {{ $barColor }}; height: 100%; width: {{ $pct }}%; border-radius: 2.5px;"></div>
-                                    </div>
-                                </td>
-                                <td style="width: 20%; text-align: right; font-size: 6.5pt; font-weight: bold; color: #111827; padding: 0.5px 0;">
-                                    S/. {{ number_format($amt, 0, ',', '.') }}
-                                    <span style="font-size: 5pt; color: #6b7280; font-weight: normal;">({{ $pct }}%)</span>
-                                </td>
-                            </tr>
-                        @empty
+                    </div>
+                    <table class="compact-grid-table">
+                        <thead>
                             <tr>
-                                <td style="text-align: center; color: {{ $titleColor }}; font-size: 6.8pt; padding-top: 20px; font-style: italic;">Sin desglose de categorías.</td>
+                                <th style="width: 48%; text-align: left;">Categoría</th>
+                                <th style="width: 20%; text-align: center;">Tipo</th>
+                                <th style="width: 32%; text-align: right;">Monto (% Part.)</th>
                             </tr>
-                        @endforelse
+                        </thead>
+                        <tbody>
+                            @forelse($topItems as $item)
+                                @php
+                                    $pct = round(($item['amount'] / $totalItemAmount) * 100, 1);
+                                    $typeColor = $item['type'] === 'Ingreso' ? '#059669' : ($item['type'] === 'Egreso' ? '#e11d48' : $darkColor);
+                                @endphp
+                                <tr>
+                                    <td style="font-weight: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">{{ $item['name'] }}</td>
+                                    <td style="text-align: center; font-weight: bold; color: {{ $typeColor }};">{{ $item['type'] }}</td>
+                                    <td style="text-align: right; font-weight: bold;">
+                                        S/. {{ number_format($item['amount'], 2) }}
+                                        <span style="font-size: {{ $cardLabelSize }}; color: #64748b; font-weight: normal;">({{ $pct }}%)</span>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" style="text-align: center; color: #64748b; font-style: italic; padding: 5pt;">Sin categorías registradas.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
                     </table>
                 </div>
             </td>
         </tr>
     </table>
 
+    <!-- Resumen Financiero Consolidado -->
     @if(in_array('summary', $report['sections'], true))
         @php
             $summaryColumns = $report['selectedColumns']['summary'] ?? [];
+            $summaryColWidth = round(100 / max(count($summaryColumns), 1), 2);
         @endphp
-        <section class="section">
-            <h2 class="section-title">{{ $report['sectionOptions']['summary']['label'] }}</h2>
-            <table class="summary">
-                <tr>
-                    @foreach($summaryColumns as $column)
-                        <td>
-                            <span class="summary-label">{{ $report['columnOptions']['summary'][$column] }}</span>
-                            <span class="summary-value" style="{{ $summaryValueStyle($column, $report['summary'][$column] ?? '') }}">{{ $report['summary'][$column] ?? '-' }}</span>
-                        </td>
-                    @endforeach
-                </tr>
+        <div class="summary-wrap" style="margin-top: 2pt; margin-bottom: 5pt; page-break-inside: avoid;">
+            <div class="summary-heading">
+                {{ $report['sectionOptions']['summary']['label'] }} · Balance Consolidado
+            </div>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        @foreach($summaryColumns as $column)
+                            <th style="width: {{ $summaryColWidth }}%; {{ $colAlign($column) }}">
+                                {{ $report['columnOptions']['summary'][$column] }}
+                            </th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        @foreach($summaryColumns as $column)
+                            <td style="{{ $colAlign($column) }}; {{ $summaryValueStyle($column, $report['summary'][$column] ?? '') }}">
+                                {{ $report['summary'][$column] ?? '-' }}
+                            </td>
+                        @endforeach
+                    </tr>
+                </tbody>
             </table>
-        </section>
+        </div>
     @endif
 
+    <!-- Tabla Detallada de Movimientos -->
     @if(in_array('records', $report['sections'], true))
         @php
             $recordColumns = $report['selectedColumns']['records'] ?? [];
@@ -358,6 +401,7 @@
         </section>
     @endif
 
+    <!-- Tabla Agrupada (Categorías / Propósitos) -->
     @php
         $aggregateSection = $report['type'] === 'movimientos' ? 'categories' : 'purposes';
     @endphp
@@ -365,7 +409,7 @@
         @php
             $aggregateColumns = $report['selectedColumns'][$aggregateSection] ?? [];
         @endphp
-        <section class="section" style="margin-top: 12pt; page-break-inside: auto;">
+        <section class="section" style="margin-top: 8pt; page-break-inside: auto;">
             <h2 class="section-alt-title" style="page-break-after: avoid;">{{ $report['sectionOptions'][$aggregateSection]['label'] }}</h2>
             @if(count($report['aggregates']) > 0)
                 <table class="data-alt">

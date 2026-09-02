@@ -237,6 +237,10 @@
         :pdf-preview-page-count="$pdfPreviewPageCount"
         :pdf-include-signatures="$pdfIncludeSignatures"
         :pdf-scale="$pdfScale"
+        :pdf-signature-scale="$pdfSignatureScale"
+        :pdf-table-color-mode="$pdfTableColorMode"
+        :pdf-table-preset="$pdfTablePreset"
+        :pdf-table-radius="$pdfTableRadius"
         :has-pdf-customization="true"
         :back-action="'$set(\'showReportModal\', true); $set(\'showExportModal\', false)'"
     >
