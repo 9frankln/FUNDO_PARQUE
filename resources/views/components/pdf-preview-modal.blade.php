@@ -156,8 +156,9 @@
                     if (!container) return;
                     
                     const fragment = document.createDocumentFragment();
+                    const horizontalGutter = window.innerWidth < 640 ? 24 : 48;
                     const measuredWidth = scroller?.clientWidth || container.parentElement?.clientWidth || window.innerWidth;
-                    const targetWidth = Math.max(320, measuredWidth - (window.innerWidth < 640 ? 4 : 8));
+                    const targetWidth = Math.max(300, measuredWidth - horizontalGutter);
                     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
                     const canvasList = [];
@@ -173,13 +174,14 @@
 
                         const wrapper = document.createElement('div');
                         wrapper.id = 'pdf-page-' + i;
-                        wrapper.className = 'w-full flex justify-center mb-3 shrink-0';
+                        wrapper.className = 'w-full flex justify-center mb-4 shrink-0';
                         wrapper.style.width = '100%';
                         wrapper.style.maxWidth = targetWidth + 'px';
 
                         const canvas = document.createElement('canvas');
-                        canvas.className = 'rounded-md shadow-2xl bg-white border border-zinc-700/60 w-full block';
-                        canvas.style.width = '100%';
+                        canvas.className = 'rounded-xl shadow-2xl bg-white border border-zinc-700/60 w-full block mx-auto';
+                        canvas.style.width = targetWidth + 'px';
+                        canvas.style.maxWidth = '100%';
                         canvas.style.height = 'auto';
                         canvas.height = viewport.height;
                         canvas.width = viewport.width;
@@ -473,14 +475,14 @@
                          x-transition:leave="transition ease-in duration-150"
                          x-transition:leave-start="opacity-100 translate-y-0"
                          x-transition:leave-end="opacity-0 -translate-y-2"
-                         class="absolute top-3 right-3 z-30 pointer-events-none">
+                         class="absolute top-3 right-6 sm:right-8 z-30 pointer-events-none">
                         <div class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-zinc-950/90 px-3 py-1.5 text-xs font-bold text-emerald-400 shadow-xl backdrop-blur-md">
                             <svg class="h-3.5 w-3.5 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                             <span class="text-[11px]">Procesando documento...</span>
                         </div>
                     </div>
                     <div wire:loading wire:target="setPdfScale, setPdfSignatureScale, togglePdfSignatures, setPdfTableColorMode, setPdfTablePreset, exportar, exportDetailedReport, signAndDownloadCurrentPdf"
-                         class="absolute top-3 right-3 z-30 pointer-events-none transition-opacity">
+                         class="absolute top-3 right-6 sm:right-8 z-30 pointer-events-none transition-opacity">
                         <div class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-zinc-950/85 px-3 py-1.5 text-xs font-bold text-emerald-400 shadow-xl backdrop-blur-md">
                             <svg class="h-3.5 w-3.5 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                             <span class="text-[11px]">Actualizando...</span>
@@ -491,9 +493,9 @@
                     <div x-show="isRenderingCanvas" class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 animate-pulse z-30"></div>
 
                     @if($pdfPreviewToken || $pdfPreviewData)
-                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON AJUSTE COMPLETO AL ANCHO) --}}
+                        {{-- VISOR PDF UNIVERSAL ALTA DEFINICIÓN (HTML5 CANVAS MULTI-PÁGINA CON MARGEN EQUILIBRADO) --}}
                         <div x-ref="pdfScrollContainer"
-                             class="relative w-full flex-1 min-h-0 overflow-y-auto p-1 sm:p-2 bg-zinc-950 flex flex-col items-center select-none"
+                             class="relative w-full flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-3 bg-zinc-950 flex flex-col items-center select-none"
                              style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;">
 
                             {{-- Contenedor de páginas renderizadas directo al tope sin huecos negros --}}
