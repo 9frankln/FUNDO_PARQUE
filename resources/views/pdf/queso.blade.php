@@ -1,12 +1,78 @@
 @php
+    $scale = (string) ($scale ?? '85');
+    $tableFontSize = match($scale) {
+        '40', '45' => '5.2pt',
+        '50', '55' => '5.8pt',
+        '65' => '6.4pt',
+        '75' => '7.0pt',
+        '85' => '7.5pt',
+        default => '8.0pt',
+    };
+    $thFontSize = match($scale) {
+        '40', '45' => '4.8pt',
+        '50', '55' => '5.4pt',
+        '65' => '6.0pt',
+        '75' => '6.6pt',
+        '85' => '7.0pt',
+        default => '7.5pt',
+    };
+    $tableCellPad = match($scale) {
+        '40', '45' => '1.5pt 2.5pt',
+        '50', '55' => '2pt 3pt',
+        '65' => '2.5pt 3.5pt',
+        '75' => '3pt 4pt',
+        '85' => '3.5pt 4.5pt',
+        default => '4.5pt 5.5pt',
+    };
+    $cardPad = match($scale) {
+        '40', '45' => '2.5pt 3.5pt',
+        '50', '55' => '3pt 4.5pt',
+        '65' => '3.5pt 5pt',
+        '75' => '4pt 5.5pt',
+        '85' => '4.5pt 6pt',
+        default => '6pt 7.5pt',
+    };
+    $cardLabelSize = match($scale) {
+        '40', '45' => '4.8pt',
+        '50', '55' => '5.2pt',
+        '65' => '5.6pt',
+        '75' => '6.0pt',
+        '85' => '6.3pt',
+        default => '6.7pt',
+    };
+    $cardValSize = match($scale) {
+        '40', '45' => '7.5pt',
+        '50', '55' => '8.5pt',
+        '65' => '9.5pt',
+        '75' => '10.5pt',
+        '85' => '11.5pt',
+        default => '12.5pt',
+    };
+    $chartHeight = match($scale) {
+        '40', '45' => '56pt',
+        '50', '55' => '66pt',
+        '65' => '74pt',
+        '75' => '82pt',
+        '85' => '88pt',
+        default => '96pt',
+    };
+    $barMaxH = match($scale) {
+        '40', '45' => 24,
+        '50', '55' => 30,
+        '65' => 36,
+        '75' => 42,
+        '85' => 46,
+        default => 50,
+    };
+
     $dailyWeights = [
-        'date' => 8,
-        'photo' => 8,
-        'units' => 10,
-        'presentations' => 23,
-        'weight' => 10,
-        'observations' => 28,
-        'registered_at' => 13,
+        'date' => 9,
+        'photo' => 7,
+        'units' => 8,
+        'presentations' => 13,
+        'weight' => 9,
+        'observations' => 42,
+        'registered_at' => 12,
     ];
     $weeklyWeights = [
         'week' => 10,
@@ -14,8 +80,8 @@
         'days' => 10,
         'units' => 13,
         'weight' => 12,
-        'average_units' => 18,
-        'average_weight' => 18,
+        'average_units' => 17,
+        'average_weight' => 16,
     ];
     $monthlyWeights = [
         'month' => 14,
@@ -36,6 +102,13 @@
         'average_units' => 17,
         'average_weight' => 16,
     ];
+
+    $isMono = $pdfConfig->modoColorTablas() === 'mono';
+    $primaryColor = $pdfConfig->accentColor();
+    $darkColor = $pdfConfig->accentDark();
+    $softColor = $pdfConfig->accentSoft();
+    $borderColor = $pdfConfig->accentBorder();
+    $evenColor = $pdfConfig->accentRowEven();
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -43,104 +116,134 @@
 <meta charset="UTF-8">
 <title>Reporte de producción de queso | {{ $branding->name }}</title>
 <style>
-@page { size: A4 landscape; margin: 14mm 10mm 16mm 10mm; }
+@page { size: A4 landscape; margin: 9mm 8mm 11mm 8mm; }
 * { box-sizing: border-box; }
 body {
     margin: 0;
-    color: #26342c;
+    color: #1e293b;
     font-family: DejaVu Sans, sans-serif;
     font-size: 8pt;
-    line-height: 1.3;
+    line-height: 1.25;
 }
-.header { margin-bottom: 7pt; padding-bottom: 6pt; border-bottom: 2px solid #3f7662; }
-.eyebrow { margin: 0 0 2pt; color: #3f7662; font-size: 6.5pt; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
-h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
-.subtitle { margin: 0; color: #5c6d63; }
+.header { margin-bottom: 5pt; padding-bottom: 4pt; border-bottom: 2.5px solid {{ $primaryColor }}; }
+.eyebrow { margin: 0 0 1.5pt; color: {{ $primaryColor }}; font-size: 6.5pt; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; }
+h1 { margin: 0 0 2pt; color: {{ $darkColor }}; font-size: 15pt; line-height: 1.1; font-weight: 900; }
+.subtitle { margin: 0; color: #475569; font-size: 7.2pt; }
 .meta-table, .context-table, .summary-grid, .data-table { width: 100%; border-collapse: collapse; }
-.meta-table { margin-bottom: 7pt; table-layout: fixed; }
-.meta-table td { padding: 4pt 6pt; border: 1px solid #c9dfd2; background: #f0f8f3; vertical-align: top; }
-.meta-label { color: #315c4c; font-weight: bold; }
-.context-title { padding: 4pt 6pt; background: #315c4c; color: #fff; font-size: 8pt; font-weight: bold; }
-.context-table { margin-bottom: 10pt; table-layout: fixed; }
-.context-table td { padding: 5pt 6pt; border: 1px solid #d7e5dc; vertical-align: top; }
-.context-table td:first-child { width: 58%; background: #f6faf7; }
-.context-table td:last-child { width: 42%; background: #fbfcfb; }
-.report-section { margin-top: 10pt; margin-bottom: 10pt; page-break-inside: auto; }
-.section-heading { margin: 0 0 7pt; padding: 6pt 8pt; border-left: 4px solid #3f8a6b; background: #edf8f2; color: #285a47; font-size: 11pt; page-break-after: avoid; }
-.section-heading.daily { border-color: #b9812f; background: #fcf5e8; color: #6c4a1d; }
-.section-heading.weekly { border-color: #4383a2; background: #edf6fa; color: #315f75; }
-.section-heading.monthly { border-color: #7661a8; background: #f3f0fa; color: #564679; }
-.section-heading.annual { border-color: #a25b68; background: #faeff1; color: #743f49; }
-.section-note { display: block; margin-top: 2pt; color: #6d7b73; font-size: 6.5pt; font-weight: normal; }
-.summary-grid { margin-bottom: 6pt; table-layout: fixed; }
-.summary-grid td { width: 25%; padding: 3pt; vertical-align: top; }
-.summary-card { min-height: 42pt; padding: 7pt; border: 1px solid #cce3d5; background: #f3faf6; }
-.summary-card-label { display: block; margin-bottom: 4pt; color: #527061; font-size: 6.4pt; font-weight: bold; text-transform: uppercase; }
-.summary-card-value { color: #244d3c; font-size: 12pt; font-weight: bold; line-height: 1.15; }
-.data-table { table-layout: fixed; }
+.meta-table { margin-bottom: 5pt; table-layout: fixed; }
+.meta-table td { padding: 3pt 5pt; border: 1px solid {{ $borderColor }}; background: {{ $softColor }}; vertical-align: top; }
+.meta-label { color: {{ $darkColor }}; font-weight: bold; }
+.report-section { margin-top: 6pt; margin-bottom: 6pt; page-break-inside: auto; }
+.section-heading {
+    margin: 0 0 5pt;
+    padding: 3.5pt 6pt;
+    border-left: 4px solid {{ $primaryColor }};
+    background: {{ $softColor }};
+    color: {{ $darkColor }};
+    font-size: 9.5pt;
+    font-weight: bold;
+    page-break-after: avoid;
+    border-radius: {{ $pdfConfig->tableBorderRadius() }};
+}
+.section-note { display: block; margin-top: 1.5pt; color: #64748b; font-size: 6.2pt; font-weight: normal; }
+.summary-grid { margin-bottom: 3pt; table-layout: fixed; }
+.summary-grid td { width: 25%; padding: 2pt; vertical-align: top; }
+.summary-card {
+    padding: {{ $cardPad }};
+    border-radius: {{ $pdfConfig->tableBorderRadius() }};
+    page-break-inside: avoid;
+}
+.summary-card-label {
+    display: block;
+    margin-bottom: 2px;
+    font-size: {{ $cardLabelSize }};
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.summary-card-value {
+    font-size: {{ $cardValSize }};
+    font-weight: bold;
+    line-height: 1.1;
+    display: block;
+}
+.data-table { table-layout: fixed; border-collapse: collapse; width: 100%; }
 .data-table thead { display: table-header-group; }
 .data-table tbody tr { page-break-inside: avoid; }
 .data-table th {
-    padding: 4pt 3.5pt;
-    border: 1px solid #704f22;
-    background: #80612f;
-    color: #fff;
-    font-size: 6.7pt;
-    line-height: 1.15;
+    padding: {{ $tableCellPad }};
+    font-size: {{ $thFontSize }};
+    line-height: 1.18;
     text-align: left;
     text-transform: uppercase;
     vertical-align: middle;
     word-wrap: break-word;
 }
 .data-table td {
-    padding: 4pt 3.5pt;
-    border: 1px solid #e8dcc6;
-    font-size: 7.3pt;
-    line-height: 1.25;
+    padding: {{ $tableCellPad }};
+    font-size: {{ $tableFontSize }};
+    line-height: 1.22;
     vertical-align: top;
     word-wrap: break-word;
 }
-.data-table.daily tbody tr:nth-child(even) { background: #fdf8ef; }
-.data-table.weekly th { border-color: #315f75; background: #41768f; }
-.data-table.weekly td { border-color: #d4e4eb; }
-.data-table.weekly tbody tr:nth-child(even) { background: #f1f8fb; }
-.data-table.monthly th { border-color: #564679; background: #6b5a91; }
-.data-table.monthly td { border-color: #dfd9ec; }
-.data-table.monthly tbody tr:nth-child(even) { background: #f7f5fb; }
-.data-table.annual th { border-color: #743f49; background: #87515b; }
-.data-table.annual td { border-color: #ead8dc; }
-.data-table.annual tbody tr:nth-child(even) { background: #fcf4f6; }
-.data-table.dense th { padding: 3.2pt 2.8pt; font-size: 6.2pt; }
-.data-table.dense td { padding: 3.2pt 2.8pt; font-size: 6.8pt; line-height: 1.2; }
+
+@if($isMono)
+    .section-heading { border-left-color: {{ $primaryColor }}; background: {{ $softColor }}; color: {{ $darkColor }}; }
+    .data-table th { border: 1px solid {{ $darkColor }}; background: {{ $primaryColor }}; color: #ffffff; }
+    .data-table td { border: 1px solid {{ $borderColor }}; }
+    .data-table tbody tr:nth-child(even) { background-color: {{ $evenColor }}; }
+@else
+    .section-heading.daily { border-left-color: #d97706; background: #fffbeb; color: #92400e; }
+    .section-heading.weekly { border-left-color: #0284c7; background: #f0f9ff; color: #0369a1; }
+    .section-heading.monthly { border-left-color: #7c3aed; background: #f5f3ff; color: #5b21b6; }
+    .section-heading.annual { border-left-color: #e11d48; background: #fff1f2; color: #9f1239; }
+
+    .data-table.daily th { border: 1px solid #b45309; background: #d97706; color: #ffffff; }
+    .data-table.daily td { border: 1px solid #fed7aa; }
+    .data-table.daily tbody tr:nth-child(even) { background-color: #fffbeb; }
+
+    .data-table.weekly th { border: 1px solid #0369a1; background: #0284c7; color: #ffffff; }
+    .data-table.weekly td { border: 1px solid #bae6fd; }
+    .data-table.weekly tbody tr:nth-child(even) { background-color: #f0f9ff; }
+
+    .data-table.monthly th { border: 1px solid #5b21b6; background: #7c3aed; color: #ffffff; }
+    .data-table.monthly td { border: 1px solid #ddd6fe; }
+    .data-table.monthly tbody tr:nth-child(even) { background-color: #f5f3ff; }
+
+    .data-table.annual th { border: 1px solid #9f1239; background: #e11d48; color: #ffffff; }
+    .data-table.annual td { border: 1px solid #fecdd3; }
+    .data-table.annual tbody tr:nth-child(even) { background-color: #fff1f2; }
+@endif
+
 .nowrap { white-space: nowrap; }
-.photo { display: block; width: 42pt; height: 32pt; border: 1px solid #d6c8ae; object-fit: cover; }
-.no-photo { color: #8a8174; font-size: 6.5pt; font-style: italic; }
-.empty { padding: 12pt !important; color: #718078; font-style: italic; text-align: center; }
+.photo { display: block; width: 38pt; height: 28pt; border: 1px solid {{ $borderColor }}; object-fit: cover; border-radius: 3px; }
+.no-photo { color: #94a3b8; font-size: 6.2pt; font-style: italic; }
+.empty { padding: 10pt !important; color: #64748b; font-style: italic; text-align: center; }
 </style>
 @include('pdf.partials.styles')
 </head>
 <body>
 @include('pdf.partials.watermark')
-<div class="header" style="border-bottom-color: {{ $pdfConfig->accentColor() }};">
+<div class="header" style="border-bottom-color: {{ $primaryColor }};">
     @if($pdfConfig->showHeaderLogo())
-        <x-brand-logo pdf style="float: right; width: 28pt; height: 28pt; color: {{ $pdfConfig->accentColor() }}; object-fit: contain" />
+        <x-brand-logo pdf style="float: right; width: 26pt; height: 26pt; color: {{ $primaryColor }}; object-fit: contain" />
     @endif
-    <p class="eyebrow" style="color: {{ $pdfConfig->accentColor() }};">{{ $branding->tagline }} | Producción y transformación láctea</p>
-    <h1 style="color: {{ $pdfConfig->accentDark() }};">{{ $branding->name }} - Reporte de Producción de Queso</h1>
+    <p class="eyebrow" style="color: {{ $primaryColor }};">{{ $branding->tagline }} | Producción y transformación láctea</p>
+    <h1 style="color: {{ $darkColor }};">{{ $branding->name }} - Reporte de Producción de Queso</h1>
     <p class="subtitle">Fundo: <strong>{{ $fundo->nombre }}</strong> &nbsp;&middot;&nbsp; Generado el {{ $generatedAt->copy()->timezone('America/Lima')->format('d/m/Y H:i') }} (hora Perú)</p>
 </div>
 
-    <div class="summary-card" style="border: 1px solid {{ $pdfConfig->accentBorder() }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; overflow: hidden; background-color: {{ $pdfConfig->accentSoft() }}; margin-bottom: 9pt;">
-        <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; background: transparent;">
-            <tr>
-                <td style="width: 50%; border: none; border-right: 1px solid {{ $pdfConfig->accentBorder() }}; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Generado por:</strong> {{ $generatedBy }}</td>
-                <td style="width: 50%; border: none; border-bottom: 1px solid {{ $pdfConfig->accentBorder() }}; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Usuario / Documento:</strong> {{ auth()->user()?->name ?? 'Sistema' }} ({{ auth()->user()?->dni ? 'DNI: '.auth()->user()->dni : (auth()->user()?->username ? '@'.auth()->user()->username : 'Sistema') }})</td>
-            </tr>
-            <tr>
-                <td colspan="2" style="border: none; color: #1e293b;"><strong style="color: {{ $pdfConfig->accentDark() }};">Alcance del reporte:</strong> {{ $reportSummary }}</td>
-            </tr>
-        </table>
-    </div>
+<div class="summary-card" style="border: 1px solid {{ $borderColor }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; overflow: hidden; background-color: {{ $softColor }}; margin-bottom: 6pt; padding: 3pt 5pt;">
+    <table style="width: 100%; border-collapse: collapse; border: none; margin: 0; background: transparent;">
+        <tr>
+            <td style="width: 50%; border: none; border-right: 1px solid {{ $borderColor }}; border-bottom: 1px solid {{ $borderColor }}; color: #1e293b; padding: 2pt 4pt; font-size: 7pt;"><strong style="color: {{ $darkColor }};">Generado por:</strong> {{ $generatedBy }}</td>
+            <td style="width: 50%; border: none; border-bottom: 1px solid {{ $borderColor }}; color: #1e293b; padding: 2pt 4pt; font-size: 7pt;"><strong style="color: {{ $darkColor }};">Usuario / Documento:</strong> {{ auth()->user()?->name ?? 'Sistema' }} ({{ auth()->user()?->dni ? 'DNI: '.auth()->user()->dni : (auth()->user()?->username ? '@'.auth()->user()->username : 'Sistema') }})</td>
+        </tr>
+        <tr>
+            <td colspan="2" style="border: none; color: #1e293b; padding: 2pt 4pt; font-size: 7pt;"><strong style="color: {{ $darkColor }};">Alcance del reporte:</strong> {{ $reportSummary }}</td>
+        </tr>
+    </table>
+</div>
 
 @php
     $renderedSection = 0;
@@ -161,42 +264,44 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
                 <tr>
                     @foreach($row as $field)
                         @php
-                            // Dynamic theme based on field to match dashboard styling
-                            $cardBorder = '#cce3d5';
-                            $cardBg = '#f3faf6';
-                            $cardLabelColor = '#527061';
-                            $cardValColor = '#244d3c';
+                            if ($isMono) {
+                                $cardBorder = $borderColor;
+                                $cardBg = $softColor;
+                                $cardLabelColor = $darkColor;
+                                $cardValColor = $primaryColor;
+                            } else {
+                                $cardBorder = '#cce3d5';
+                                $cardBg = '#f3faf6';
+                                $cardLabelColor = '#527061';
+                                $cardValColor = '#244d3c';
 
-                            if (in_array($field, ['period', 'weight'], true)) {
-                                // Green / Emerald theme
-                                $cardBorder = '#a7f3d0';
-                                $cardBg = '#f0fdf4';
-                                $cardLabelColor = '#047857';
-                                $cardValColor = '#065f46';
-                            } elseif (in_array($field, ['records', 'days', 'units'], true)) {
-                                // Sky blue theme
-                                $cardBorder = '#bae6fd';
-                                $cardBg = '#f0f9ff';
-                                $cardLabelColor = '#0369a1';
-                                $cardValColor = '#075985';
-                            } elseif (in_array($field, ['average_units', 'average_weight'], true)) {
-                                // Violet theme
-                                $cardBorder = '#ddd6fe';
-                                $cardBg = '#f5f3ff';
-                                $cardLabelColor = '#6d28d9';
-                                $cardValColor = '#5b21b6';
-                            } elseif ($field === 'last_production') {
-                                // Amber / Orange theme
-                                $cardBorder = '#fde68a';
-                                $cardBg = '#fffbeb';
-                                $cardLabelColor = '#b45309';
-                                $cardValColor = '#92400e';
+                                if (in_array($field, ['period', 'weight'], true)) {
+                                    $cardBorder = '#a7f3d0';
+                                    $cardBg = '#f0fdf4';
+                                    $cardLabelColor = '#047857';
+                                    $cardValColor = '#065f46';
+                                } elseif (in_array($field, ['records', 'days', 'units'], true)) {
+                                    $cardBorder = '#bae6fd';
+                                    $cardBg = '#f0f9ff';
+                                    $cardLabelColor = '#0369a1';
+                                    $cardValColor = '#075985';
+                                } elseif (in_array($field, ['average_units', 'average_weight'], true)) {
+                                    $cardBorder = '#ddd6fe';
+                                    $cardBg = '#f5f3ff';
+                                    $cardLabelColor = '#6d28d9';
+                                    $cardValColor = '#5b21b6';
+                                } elseif ($field === 'last_production') {
+                                    $cardBorder = '#fde68a';
+                                    $cardBg = '#fffbeb';
+                                    $cardLabelColor = '#b45309';
+                                    $cardValColor = '#92400e';
+                                }
                             }
                         @endphp
                         <td>
-                            <div class="summary-card" style="border: 1px solid {{ $cardBorder }}; background: {{ $cardBg }}; border-radius: 8px; min-height: 42pt; padding: 7pt;">
-                                <span class="summary-card-label" style="color: {{ $cardLabelColor }}; display: block; margin-bottom: 4px; font-size: 6.4pt; font-weight: bold; text-transform: uppercase;">{{ $columnOptions['summary'][$field] }}</span>
-                                <span class="summary-card-value" style="color: {{ $cardValColor }}; font-size: 12pt; font-weight: bold; line-height: 1.15;">{{ $summary[$field] ?? '-' }}</span>
+                            <div class="summary-card" style="border: 1px solid {{ $cardBorder }}; background: {{ $cardBg }};">
+                                <span class="summary-card-label" style="color: {{ $cardLabelColor }};">{{ $columnOptions['summary'][$field] }}</span>
+                                <span class="summary-card-value" style="color: {{ $cardValColor }};">{{ $summary[$field] ?? '-' }}</span>
                             </div>
                         </td>
                     @endforeach
@@ -207,9 +312,7 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
             </table>
         @endforeach
 
-        <!-- Dashboard Visual Charts -->
         @php
-            // Calculate monthly history (up to last 12 active months)
             $chartMonths = $monthlySummaries->take(12)->reverse()->values();
             $numMonths = $chartMonths->count();
             $maxWeight = max($chartMonths->pluck('total_peso')->max() ?: 1, 1);
@@ -218,8 +321,7 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
             if ($numMonths > 0) {
                 foreach ($chartMonths as $m) {
                     $w = (float) $m->total_peso;
-                    // Max height of the bar is 55px, min is 2px
-                    $pct = max(round(($w / $maxWeight) * 55), 2);
+                    $pct = max(round(($w / $maxWeight) * $barMaxH), 2);
                     $barData[] = [
                         'weight' => $w,
                         'height' => $pct,
@@ -229,7 +331,6 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
                 }
             }
 
-            // Calculate presentations mix from productions
             $presentationTotals = [];
             foreach ($productions as $p) {
                 foreach ($p->presentaciones as $pres) {
@@ -239,87 +340,95 @@ h1 { margin: 0 0 3pt; color: #294c3f; font-size: 16pt; line-height: 1.1; }
             }
             arsort($presentationTotals);
             $totalPresentationsQty = array_sum($presentationTotals) ?: 1;
-            $topPresentations = array_slice($presentationTotals, 0, 5, true);
-            
-            $presentationColors = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-            $colorIndex = 0;
+            $topPresentations = array_slice($presentationTotals, 0, 4, true);
+
+            $chart1Border = $isMono ? $borderColor : '#a7f3d0';
+            $chart1Bg = $isMono ? $softColor : '#f0fdf4';
+            $chart1Title = $isMono ? $darkColor : '#065f46';
+            $chart1Bar = $isMono ? $primaryColor : '#10b981';
+
+            $chart2Border = $isMono ? $borderColor : '#bae6fd';
+            $chart2Bg = $isMono ? $softColor : '#f0f9ff';
+            $chart2Title = $isMono ? $darkColor : '#075985';
         @endphp
 
-        <table style="width: 100%; margin-top: 15px; border-collapse: collapse; table-layout: fixed;">
+        <table style="width: 100%; margin-top: 4pt; border-collapse: collapse; table-layout: fixed;">
             <tr>
-                <td style="width: 50%; padding-right: 12px; vertical-align: top;">
-                    <div style="border: 1px solid #a7f3d0; background: #f0fdf4; padding: 12px; border-radius: 12px; height: 110pt;">
-                        <strong style="color: #065f46; font-size: 8.5pt; display: block; margin-bottom: 6px; border-bottom: 1px solid #d1fae5; padding-bottom: 4px;">Evolución de Producción Mensual (Kg)</strong>
+                <td style="width: 50%; padding-right: 4pt; vertical-align: top;">
+                    <div style="border: 1px solid {{ $chart1Border }}; background: {{ $chart1Bg }}; padding: {{ $cardPad }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; height: {{ $chartHeight }};">
+                        <strong style="color: {{ $chart1Title }}; font-size: {{ $cardLabelSize }}; display: block; margin-bottom: 3pt; border-bottom: 1px solid {{ $chart1Border }}; padding-bottom: 2pt;">Evolución de Producción Mensual (Kg)</strong>
                         
                         @if(count($barData) > 0)
-                            <table style="width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3pt;">
                                 <tr>
                                     @foreach($barData as $bar)
-                                        <td style="text-align: center; vertical-align: bottom; padding: 0 2px;">
-                                            <div style="font-size: 5.8pt; color: #065f46; font-weight: bold; margin-bottom: 3px;">
+                                        <td style="text-align: center; vertical-align: bottom; padding: 0 1.5px;">
+                                            <div style="font-size: 5pt; color: {{ $chart1Title }}; font-weight: bold; margin-bottom: 2px;">
                                                 {{ number_format($bar['weight'], 0, ',', '.') }}
                                             </div>
-                                            <!-- The vertical bar -->
-                                            <div style="background: #10b981; width: 14px; height: {{ $bar['height'] }}px; border-radius: 3px 3px 0 0; margin: 0 auto;"></div>
+                                            <div style="background: {{ $chart1Bar }}; width: 12px; height: {{ $bar['height'] }}px; border-radius: 2px 2px 0 0; margin: 0 auto;"></div>
                                         </td>
                                     @endforeach
                                 </tr>
                                 <tr>
-                                    <td colspan="{{ count($barData) }}" style="padding: 4px 0 2px;">
-                                        <div style="border-top: 1px dashed #a7f3d0; height: 1px; width: 100%;"></div>
+                                    <td colspan="{{ count($barData) }}" style="padding: 2px 0 1px;">
+                                        <div style="border-top: 1px dashed {{ $chart1Border }}; height: 1px; width: 100%;"></div>
                                     </td>
                                 </tr>
                                 <tr>
                                     @foreach($barData as $bar)
-                                        <td style="text-align: center; font-size: 6pt; color: #527061; font-weight: bold; overflow: hidden; white-space: nowrap;">
+                                        <td style="text-align: center; font-size: 5.2pt; color: #527061; font-weight: bold; overflow: hidden; white-space: nowrap;">
                                             {{ $bar['monthLabel'] }}
                                         </td>
                                     @endforeach
                                 </tr>
                                 <tr>
                                     @foreach($barData as $bar)
-                                        <td style="text-align: center; font-size: 5pt; color: #86a393; font-weight: normal; overflow: hidden; white-space: nowrap; padding-top: 1px;">
+                                        <td style="text-align: center; font-size: 4.5pt; color: #86a393; font-weight: normal; overflow: hidden; white-space: nowrap; padding-top: 0.5px;">
                                             '{{ $bar['yearLabel'] }}
                                         </td>
                                     @endforeach
                                 </tr>
                             </table>
                         @else
-                            <div style="text-align: center; color: #047857; font-size: 8pt; padding: 25px 0; font-style: italic;">Sin datos de producción mensual.</div>
+                            <div style="text-align: center; color: {{ $chart1Title }}; font-size: 7pt; padding: 12pt 0; font-style: italic;">Sin datos de producción mensual.</div>
                         @endif
                     </div>
                 </td>
-                <td style="width: 50%; padding-left: 12px; vertical-align: top;">
-                    <div style="border: 1px solid #bae6fd; background: #f0f9ff; padding: 12px; border-radius: 12px; height: 110pt;">
-                        <strong style="color: #075985; font-size: 8.5pt; display: block; margin-bottom: 8px; border-bottom: 1px solid #e0f2fe; padding-bottom: 4px;">Mezcla de Presentaciones</strong>
+                <td style="width: 50%; padding-left: 4pt; vertical-align: top;">
+                    <div style="border: 1px solid {{ $chart2Border }}; background: {{ $chart2Bg }}; padding: {{ $cardPad }}; border-radius: {{ $pdfConfig->tableBorderRadius() }}; height: {{ $chartHeight }};">
+                        <strong style="color: {{ $chart2Title }}; font-size: {{ $cardLabelSize }}; display: block; margin-bottom: 3pt; border-bottom: 1px solid {{ $chart2Border }}; padding-bottom: 2pt;">Mezcla de Presentaciones</strong>
                         <table style="width: 100%; border-collapse: collapse;">
                             @forelse($topPresentations as $weight => $qty)
                                 @php
                                     $pct = round(($qty / $totalPresentationsQty) * 100);
+                                    $color = '#8b5cf6';
+                                    if ((int)$weight === 500) { $color = '#10b981'; }
+                                    elseif ((int)$weight === 1000) { $color = '#0ea5e9'; }
                                     
-                                    // Map color & label
-                                    $color = '#8b5cf6'; // default violet
-                                    if ((int)$weight === 500) { $color = '#10b981'; } // emerald
-                                    elseif ((int)$weight === 1000) { $color = '#0ea5e9'; } // sky blue
-                                    
-                                    $textColor = '#5b21b6'; // default violet dark
-                                    if ((int)$weight === 500) { $textColor = '#0f766e'; } // emerald dark
-                                    elseif ((int)$weight === 1000) { $textColor = '#0369a1'; } // sky blue dark
+                                    $textColor = '#5b21b6';
+                                    if ((int)$weight === 500) { $textColor = '#0f766e'; }
+                                    elseif ((int)$weight === 1000) { $textColor = '#0369a1'; }
+
+                                    if ($isMono) {
+                                        $color = $primaryColor;
+                                        $textColor = $darkColor;
+                                    }
 
                                     $label = \App\Models\ProduccionQuesoPresentacion::pesoLabel($weight);
                                 @endphp
-                                <tr style="height: 22px;">
-                                    <td style="width: 32%; font-size: 7.5pt; color: {{ $textColor }}; font-weight: bold; padding: 2px 0;">{{ $label }}</td>
-                                    <td style="width: 48%; padding: 2px 0;">
-                                        <div style="background: #e0f2fe; height: 10px; border-radius: 5px; overflow: hidden; width: 100%;">
-                                            <div style="background: {{ $color }}; height: 100%; width: {{ $pct }}%; border-radius: 5px;"></div>
+                                <tr style="height: 16px;">
+                                    <td style="width: 32%; font-size: {{ $cardLabelSize }}; color: {{ $textColor }}; font-weight: bold; padding: 1px 0;">{{ $label }}</td>
+                                    <td style="width: 46%; padding: 1px 0;">
+                                        <div style="background: {{ $isMono ? '#e2e8f0' : '#e0f2fe' }}; height: 6px; border-radius: 3px; overflow: hidden; width: 100%;">
+                                            <div style="background: {{ $color }}; height: 100%; width: {{ $pct }}%; border-radius: 3px;"></div>
                                         </div>
                                     </td>
-                                    <td style="width: 20%; text-align: right; font-size: 7.5pt; font-weight: bold; color: #0f172a; padding: 2px 0;">{{ $qty }} moldes <span style="font-size: 6.5pt; color: #64748b; font-weight: normal;">({{ $pct }}%)</span></td>
+                                    <td style="width: 22%; text-align: right; font-size: {{ $cardLabelSize }}; font-weight: bold; color: #0f172a; padding: 1px 0;">{{ $qty }} m. <span style="font-size: 5.2pt; color: #64748b; font-weight: normal;">({{ $pct }}%)</span></td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td style="text-align: center; color: #075985; font-size: 8pt; padding: 20px 0; font-style: italic;">Sin desglose de presentaciones.</td>
+                                    <td style="text-align: center; color: {{ $chart2Title }}; font-size: 7pt; padding: 12pt 0; font-style: italic;">Sin desglose de presentaciones.</td>
                                 </tr>
                             @endforelse
                         </table>

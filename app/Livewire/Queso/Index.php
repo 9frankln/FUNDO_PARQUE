@@ -203,6 +203,8 @@ class Index extends Component
 
     public function openQuesoReportModal(): void
     {
+        $this->loadPdfConfigDefaults();
+        $this->applyPdfConfigOverrides();
         $this->selectedReportSections = ['summary'];
         $this->reportColumns = $this->defaultReportColumns();
         $this->resetValidation();
@@ -249,6 +251,7 @@ class Index extends Component
         }
 
         $this->authorizePermission('queso', 'exportar');
+        $this->applyPdfConfigOverrides();
 
         $availableSections = array_keys(self::REPORT_SECTIONS);
         $rules = [
@@ -364,6 +367,11 @@ class Index extends Component
             'Producción y Transformación de Queso',
             $productions->count()
         );
+    }
+
+    public function exportar()
+    {
+        return $this->downloadQuesoReport();
     }
 
     public function solicitarEliminacion($id)
